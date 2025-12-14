@@ -143,7 +143,9 @@ def temp_storage_dir() -> Generator[Path, None, None]:
 @pytest.fixture(scope="function")
 def clean_onnx_service() -> Generator[None, None, None]:
     """Clean up ONNX service sessions after each test."""
-    yield
-    # Unload all models
-    for model_id in list(onnx_service._sessions.keys()):
-        onnx_service.unload_model(model_id)
+    try:
+        yield
+    finally:
+        # Unload all models
+        for model_id in list(onnx_service._sessions.keys()):
+            onnx_service.unload_model(model_id)
