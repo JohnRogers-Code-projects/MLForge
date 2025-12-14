@@ -20,7 +20,6 @@ async def health_check(db: AsyncSession = Depends(get_db)) -> HealthResponse:
     """Check application health status."""
     db_status = "connected"
     redis_status = "not_configured"  # Will be updated in Phase 3
-    onnx_status = "available"
     loaded_models = 0
 
     # Check database
