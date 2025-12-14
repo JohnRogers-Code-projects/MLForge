@@ -68,7 +68,7 @@ Once running, access the interactive API docs:
 ## Project Structure
 
 ```
-MLForge/
+ModelForge/
 ├── backend/
 │   ├── app/
 │   │   ├── api/          # API route handlers
