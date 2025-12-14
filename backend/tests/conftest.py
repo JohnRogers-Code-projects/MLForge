@@ -7,7 +7,6 @@ import tempfile
 from pathlib import Path
 from typing import AsyncGenerator, Generator
 
-import numpy as np
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
