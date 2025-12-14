@@ -142,9 +142,7 @@ class TestStorageService:
     def test_save_model_size_limit(self, temp_storage_dir: Path):
         """Test that size limit is enforced."""
         # Create service with 1KB limit
-        service = StorageService(str(temp_storage_dir))
-        service._max_size_bytes = 1024
-
+        service = StorageService(str(temp_storage_dir), max_size_bytes=1024)
         # Try to save file larger than limit
         large_content = b"x" * 2048
 
