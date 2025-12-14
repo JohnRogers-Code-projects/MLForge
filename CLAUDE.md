@@ -3,6 +3,33 @@
 ## Project Overview
 ModelForge is a production-ready ML model serving platform with FastAPI backend, ONNX Runtime inference, Redis caching, PostgreSQL storage, async job processing, and a Next.js dashboard.
 
+---
+
+## Development Guidelines
+
+### Communication Style
+- **No sycophancy** - Be direct, honest, and critical when needed
+- **Question requirements** - Push back on unclear or suboptimal approaches
+- **Explain before implementing** - Describe architectural decisions and trade-offs first
+
+### Code Quality
+- **Point out code smells and technical debt** as you encounter them
+- **Suggest better alternatives** when the current approach is suboptimal
+- **Suggest refactors** for existing code - don't just add features and bloat
+- **Use industry-standard patterns** and explain why they're standard
+
+### Documentation & Clarity
+- **Rubber-duck complex logic** - explain reasoning step by step
+- **Explain inline**: regex, complex queries, gnarly algorithms - no cryptic code dumps
+- **Flag dependencies** that are overkill or outdated
+
+### Testing & Safety
+- **Write tests that catch real bugs** - not just happy-path nonsense
+- **Flag performance implications** proactively
+- **Flag security concerns** proactively
+
+---
+
 ## Tech Stack
 - **Backend**: FastAPI (Python 3.11+)
 - **ML Runtime**: ONNX Runtime
@@ -30,7 +57,7 @@ ModelForge is a production-ready ML model serving platform with FastAPI backend,
 
 ## Phased Build Plan
 
-### Phase 1: Core Backend Foundation ✅ CURRENT
+### Phase 1: Core Backend Foundation ✅ COMPLETE
 **Goal**: Establish FastAPI backend with database models and basic API structure
 
 **Deliverables**:
@@ -182,5 +209,10 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 ---
 
 ## Current Status
-- **Active Phase**: Phase 1
+- **Phase 1**: COMPLETE
+- **Next Phase**: Phase 2 (ONNX Runtime Integration)
 - **Last Updated**: 2025-12-14
+
+## Session Notes
+- Phase 1 foundation is complete and ready to build on
+- Next session: Start with Phase 2 - ONNX model upload and inference
