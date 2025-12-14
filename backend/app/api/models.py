@@ -156,6 +156,7 @@ async def upload_model(
         # Unexpected error - clean up and re-raise
         logger.exception(f"Unexpected error during model upload: {e}")
         await model_crud.delete(db, id=model.id)
+        await db.commit()
         storage_service.delete_model(model.id)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
