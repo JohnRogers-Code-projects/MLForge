@@ -16,6 +16,22 @@ class ModelBase(BaseModel):
     version: str = Field(default="1.0.0", max_length=50, description="Model version")
 
 
+class InputSchemaItem(BaseModel):
+    """Schema for a single model input."""
+
+    name: str
+    shape: list[int | str | None]
+    dtype: str
+
+
+class OutputSchemaItem(BaseModel):
+    """Schema for a single model output."""
+
+    name: str
+    shape: list[int | str | None]
+    dtype: str
+
+
 class ModelCreate(ModelBase):
     """Schema for creating a new model."""
 
@@ -59,3 +75,27 @@ class ModelListResponse(BaseModel):
     page: int
     page_size: int
     total_pages: int
+
+
+class ModelUploadResponse(BaseModel):
+    """Response after successful model upload and validation."""
+
+    id: str
+    name: str
+    version: str
+    status: ModelStatus
+    file_path: str
+    file_size_bytes: int
+    file_hash: str
+    input_schema: list[InputSchemaItem]
+    output_schema: list[OutputSchemaItem]
+    message: str = "Model uploaded and validated successfully"
+
+    model_config = {"from_attributes": True}
+
+
+class ModelValidationError(BaseModel):
+    """Response when model validation fails."""
+
+    error: str
+    detail: Optional[str] = None

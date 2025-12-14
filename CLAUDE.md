@@ -90,16 +90,30 @@ backend/
 
 ---
 
-### Phase 2: ONNX Runtime Integration
+### Phase 2: ONNX Runtime Integration ✅ COMPLETE
 **Goal**: Add ML model upload, storage, and inference capabilities
 
 **Deliverables**:
-- [ ] Model file upload endpoint (S3-compatible or local)
-- [ ] ONNX model validation and metadata extraction
-- [ ] Model versioning system
-- [ ] Synchronous inference endpoint
-- [ ] Input/output schema validation per model
-- [ ] Model warmup and health checks
+- [x] Model file upload endpoint (local filesystem storage)
+- [x] ONNX model validation and metadata extraction
+- [x] Model versioning system (name + version unique constraint)
+- [x] Synchronous inference endpoint
+- [x] Input/output schema validation per model
+- [x] Model warmup and health checks
+
+**Key Files Added**:
+```
+backend/app/services/
+├── __init__.py
+├── onnx_service.py      # ONNX Runtime wrapper (validation, inference, caching)
+└── storage_service.py   # Model file storage (local filesystem)
+```
+
+**New API Endpoints**:
+- `POST /api/v1/models/upload` - Upload and validate ONNX model
+- `POST /api/v1/predictions/models/{id}/predict` - Run synchronous inference
+- `GET /api/v1/models/{id}/schema` - Get model input/output schema
+- `POST /api/v1/models/{id}/warmup` - Warm up model for fast inference
 
 ---
 
@@ -210,9 +224,14 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 
 ## Current Status
 - **Phase 1**: COMPLETE
-- **Next Phase**: Phase 2 (ONNX Runtime Integration)
+- **Phase 2**: COMPLETE
+- **Next Phase**: Phase 3 (Redis Caching Layer)
 - **Last Updated**: 2025-12-14
 
 ## Session Notes
-- Phase 1 foundation is complete and ready to build on
-- Next session: Start with Phase 2 - ONNX model upload and inference
+- Phase 2 ONNX Runtime integration is complete
+- Services: `ONNXService` for model validation/inference, `StorageService` for file handling
+- Model upload flow: upload → validate ONNX → extract schema → store → warmup → ready
+- Inference: validates model status, runs ONNX inference, stores prediction record
+- Tests added for ONNX service, storage service, and API endpoints
+- Next session: Start with Phase 3 - Redis caching for predictions

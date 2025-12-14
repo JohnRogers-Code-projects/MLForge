@@ -15,6 +15,8 @@ class HealthResponse(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     database: str = "connected"
     redis: str = "connected"
+    onnx_runtime: str = "available"
+    loaded_models: int = 0
 
 
 class PaginationParams(BaseModel):

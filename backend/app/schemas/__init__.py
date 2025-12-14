@@ -5,6 +5,10 @@ from app.schemas.ml_model import (
     ModelUpdate,
     ModelResponse,
     ModelListResponse,
+    ModelUploadResponse,
+    ModelValidationError,
+    InputSchemaItem,
+    OutputSchemaItem,
 )
 from app.schemas.prediction import (
     PredictionCreate,
@@ -26,6 +30,10 @@ __all__ = [
     "ModelUpdate",
     "ModelResponse",
     "ModelListResponse",
+    "ModelUploadResponse",
+    "ModelValidationError",
+    "InputSchemaItem",
+    "OutputSchemaItem",
     "PredictionCreate",
     "PredictionResponse",
     "JobCreate",
