@@ -1,8 +1,6 @@
 """API routes for predictions."""
 
 import logging
-from typing import Optional
-
 from fastapi import APIRouter, HTTPException, Query, Request, status
 
 from app.api.deps import DBSession, ModelDep
