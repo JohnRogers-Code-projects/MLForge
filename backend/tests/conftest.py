@@ -144,6 +144,5 @@ def clean_onnx_service() -> Generator[None, None, None]:
     try:
         yield
     finally:
-        # Unload all models
-        for model_id in list(onnx_service._sessions.keys()):
-            onnx_service.unload_model(model_id)
+        # Unload all models using the public method
+        onnx_service.clear_all_sessions()
