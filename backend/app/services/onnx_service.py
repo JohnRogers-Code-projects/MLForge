@@ -357,12 +357,6 @@ class ONNXService:
         """
         Clear all loaded ONNX Runtime sessions and free resources.
         """
-        for session in self._sessions.values():
-            try:
-                session._sess = None  # Help GC, though not strictly necessary
-                del session
-            except Exception:
-                pass
         self._sessions.clear()
 # Singleton instance
 onnx_service = ONNXService()
