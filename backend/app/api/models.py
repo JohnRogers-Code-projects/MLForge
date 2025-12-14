@@ -272,7 +272,10 @@ async def warmup_model(model: ModelDep) -> dict:
             "loaded": onnx_service.is_loaded(model.id),
         }
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Warmup failed: {e}",
-        )
+        logger.warning(f"Warmup failed for model {model.id}: {e}")
+        return {
+            "model_id": model.id,
+            "status": "warmup_failed",
+            "error": str(e),
+            "loaded": onnx_service.is_loaded(model.id),
+        }
