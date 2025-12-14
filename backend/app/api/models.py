@@ -218,10 +218,16 @@ async def delete_model(
         )
 
     # Unload from ONNX cache
-    onnx_service.unload_model(model_id)
+    try:
+        onnx_service.unload_model(model_id)
+    except Exception as e:
+        logger.error(f"Failed to unload ONNX model {model_id}: {e}")
 
     # Delete files from storage
-    storage_service.delete_model(model_id)
+    try:
+        storage_service.delete_model(model_id)
+    except Exception as e:
+        logger.error(f"Failed to delete storage for model {model_id}: {e}")
 
 
 @router.get("/{model_id}/schema", summary="Get model input/output schema")
