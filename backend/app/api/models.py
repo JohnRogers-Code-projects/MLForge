@@ -83,4 +83,9 @@ async def delete_model(
     db: DBSession,
 ) -> None:
     """Delete an ML model."""
-    await model_crud.delete(db, id=model.id)
+    deleted = await model_crud.delete(db, id=model.id)
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Model with id {model.id} not found",
+        )
