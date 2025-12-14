@@ -93,6 +93,7 @@ async def upload_model(
     try:
         # Update status to VALIDATING
         await model_crud.update_status(db, model.id, ModelStatus.VALIDATING)
+        await db.commit()
 
         # Save file to storage
         file_path, file_size = storage_service.save_model(
