@@ -205,7 +205,7 @@ docker compose down -v
 
 ### Directory Structure
 ```
-MLForge/
+ModelForge/
 ├── .github/                  # GitHub configuration (no CI/CD workflows yet)
 ├── backend/                  # Python FastAPI backend
 │   ├── app/
