@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git checkout:*)",
+      "WebSearch",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nAdd GitHub Actions workflows for Copilot code review handling\n\n- copilot-review-handler.yml: Processes Copilot reviews by analyzing\n  comment content for issues/suggestions, sets commit status, and\n  manages PR labels (copilot-approved/copilot-needs-attention)\n\n- pr-copilot-status.yml: Sets initial pending status on PR open/update\n  to ensure the copilot-review check exists before Copilot reviews\n\nNote: Copilot only submits \"comment\" reviews (never approve/request_changes),\nso these workflows parse content to determine if issues exist.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push:*)",
+      "Bash(git branch:*)"
+    ]
+  }
+}
