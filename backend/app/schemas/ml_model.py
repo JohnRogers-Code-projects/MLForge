@@ -19,10 +19,12 @@ class ModelBase(BaseModel):
 class ModelCreate(ModelBase):
     """Schema for creating a new model."""
 
-    metadata: Optional[dict[str, Any]] = Field(
+    model_metadata: Optional[dict[str, Any]] = Field(
         None,
         description="Additional metadata for the model",
     )
+
+    model_config = {"protected_namespaces": ()}
 
 
 class ModelUpdate(BaseModel):
@@ -32,7 +34,9 @@ class ModelUpdate(BaseModel):
     description: Optional[str] = None
     version: Optional[str] = Field(None, max_length=50)
     status: Optional[ModelStatus] = None
-    metadata: Optional[dict[str, Any]] = None
+    model_metadata: Optional[dict[str, Any]] = None
+
+    model_config = {"protected_namespaces": ()}
 
 
 class ModelResponse(ModelBase):
@@ -44,11 +48,11 @@ class ModelResponse(ModelBase):
     file_size_bytes: Optional[int] = None
     input_schema: Optional[dict[str, Any]] = None
     output_schema: Optional[dict[str, Any]] = None
-    metadata: Optional[dict[str, Any]] = None
+    model_metadata: Optional[dict[str, Any]] = None
     created_at: datetime
     updated_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "protected_namespaces": ()}
 
 
 class ModelListResponse(BaseModel):

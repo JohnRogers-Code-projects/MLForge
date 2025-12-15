@@ -4,8 +4,8 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 from uuid import uuid4
 
-from sqlalchemy import DateTime, Float, ForeignKey, String, func
-from sqlalchemy.dialects.postgresql import JSON, UUID
+from sqlalchemy import DateTime, Float, ForeignKey, String, Uuid, func
+from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -20,12 +20,12 @@ class Prediction(Base):
     __tablename__ = "predictions"
 
     id: Mapped[str] = mapped_column(
-        UUID(as_uuid=False),
+        Uuid(as_uuid=False),
         primary_key=True,
         default=lambda: str(uuid4()),
     )
     model_id: Mapped[str] = mapped_column(
-        UUID(as_uuid=False),
+        Uuid(as_uuid=False),
         ForeignKey("ml_models.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
