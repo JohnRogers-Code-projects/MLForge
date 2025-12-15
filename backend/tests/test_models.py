@@ -134,7 +134,9 @@ def sample_onnx_file() -> io.BytesIO:
     ONNX validation will be added in PR 2.3.
     """
     content = b"fake-onnx-model-content-for-testing"
-    return io.BytesIO(content)
+    f = io.BytesIO(content)
+    f.seek(0)
+    return f
 
 
 @pytest.mark.asyncio
