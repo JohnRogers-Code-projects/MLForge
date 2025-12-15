@@ -93,6 +93,7 @@ async def upload_model(
     try:
         # Update status to VALIDATING
         await model_crud.update_status(db, model.id, ModelStatus.VALIDATING)
+        await db.commit()
 
         # Save file to storage
         file_path, file_size = storage_service.save_model(
@@ -156,6 +157,7 @@ async def upload_model(
         # Unexpected error - clean up and re-raise
         logger.exception(f"Unexpected error during model upload: {e}")
         await model_crud.delete(db, id=model.id)
+        await db.commit()
         storage_service.delete_model(model.id)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -218,10 +220,16 @@ async def delete_model(
         )
 
     # Unload from ONNX cache
-    onnx_service.unload_model(model_id)
+    try:
+        onnx_service.unload_model(model_id)
+    except Exception as e:
+        logger.error(f"Failed to unload ONNX model {model_id}: {e}")
 
     # Delete files from storage
-    storage_service.delete_model(model_id)
+    try:
+        storage_service.delete_model(model_id)
+    except Exception as e:
+        logger.error(f"Failed to delete storage for model {model_id}: {e}")
 
 
 @router.get("/{model_id}/schema", summary="Get model input/output schema")
@@ -266,7 +274,10 @@ async def warmup_model(model: ModelDep) -> dict:
             "loaded": onnx_service.is_loaded(model.id),
         }
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Warmup failed: {e}",
-        )
+        logger.warning(f"Warmup failed for model {model.id}: {e}")
+        return {
+            "model_id": model.id,
+            "status": "warmup_failed",
+            "error": str(e),
+            "loaded": onnx_service.is_loaded(model.id),
+        }

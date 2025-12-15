@@ -24,16 +24,20 @@ class StorageService:
     Uses local filesystem storage with organized directory structure.
     """
 
-    def __init__(self, base_path: str | None = None) -> None:
+    def __init__(self, base_path: str | None = None, max_size_bytes: int | None = None) -> None:
         """
         Initialize storage service.
 
         Args:
             base_path: Base directory for model storage.
                        Defaults to settings.model_storage_path.
+            max_size_bytes: Optional custom maximum file size in bytes (for testing).
         """
         self._base_path = Path(base_path or settings.model_storage_path)
-        self._max_size_bytes = settings.max_model_size_mb * 1024 * 1024
+        if max_size_bytes is not None:
+            self._max_size_bytes = max_size_bytes
+        else:
+            self._max_size_bytes = settings.max_model_size_mb * 1024 * 1024
 
     def initialize(self) -> None:
         """Create storage directory if it doesn't exist."""

@@ -1,19 +1,17 @@
 """Pytest fixtures for testing."""
 
 import asyncio
-import os
 import shutil
 import tempfile
 from pathlib import Path
 from typing import AsyncGenerator, Generator
 
-import numpy as np
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.config import Settings, settings
+from app.config import Settings
 from app.database import Base, get_db
 from app.main import app
 from app.services.onnx_service import onnx_service
@@ -143,7 +141,8 @@ def temp_storage_dir() -> Generator[Path, None, None]:
 @pytest.fixture(scope="function")
 def clean_onnx_service() -> Generator[None, None, None]:
     """Clean up ONNX service sessions after each test."""
-    yield
-    # Unload all models
-    for model_id in list(onnx_service._sessions.keys()):
-        onnx_service.unload_model(model_id)
+    try:
+        yield
+    finally:
+        # Unload all models using the public method
+        onnx_service.clear_all_sessions()

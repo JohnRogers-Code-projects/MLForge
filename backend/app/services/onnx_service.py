@@ -353,5 +353,10 @@ class ONNXService:
         return type_map.get(onnx_type)
 
 
+    def clear_all_sessions(self) -> None:
+        """
+        Clear all loaded ONNX Runtime sessions and free resources.
+        """
+        self._sessions.clear()
 # Singleton instance
 onnx_service = ONNXService()

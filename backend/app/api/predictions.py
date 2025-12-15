@@ -1,8 +1,6 @@
 """API routes for predictions."""
 
 import logging
-from typing import Optional
-
 from fastapi import APIRouter, HTTPException, Query, Request, status
 
 from app.api.deps import DBSession, ModelDep
@@ -66,18 +64,16 @@ async def create_prediction(
     # Get client IP for logging
     client_ip = request.client.host if request.client else None
 
-    # Store prediction record
+    # Store prediction record with all data in one step
     prediction = await prediction_crud.create_with_model(
         db,
         obj_in=prediction_in,
         model_id=model.id,
+        output_data=output_data,
+        inference_time_ms=inference_time_ms,
+        cached=False,  # Will be True when Redis caching is implemented
+        client_ip=client_ip,
     )
-
-    # Update prediction with output data and timing
-    prediction.output_data = output_data
-    prediction.inference_time_ms = inference_time_ms
-    prediction.cached = False  # Will be True when Redis caching is implemented
-    prediction.client_ip = client_ip
     await db.commit()
     await db.refresh(prediction)
 
