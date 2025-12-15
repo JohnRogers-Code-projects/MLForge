@@ -5,8 +5,8 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 from uuid import uuid4
 
-from sqlalchemy import DateTime, Enum, Integer, String, Text, func
-from sqlalchemy.dialects.postgresql import JSON, UUID
+from sqlalchemy import DateTime, Enum, Integer, String, Text, Uuid, func
+from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -32,7 +32,7 @@ class MLModel(Base):
     __tablename__ = "ml_models"
 
     id: Mapped[str] = mapped_column(
-        UUID(as_uuid=False),
+        Uuid(as_uuid=False),
         primary_key=True,
         default=lambda: str(uuid4()),
     )
@@ -53,7 +53,8 @@ class MLModel(Base):
     # ONNX metadata (populated after validation)
     input_schema: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     output_schema: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-    metadata: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    # Note: Named 'model_metadata' to avoid conflict with SQLAlchemy's reserved 'metadata' attribute
+    model_metadata: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(

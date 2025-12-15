@@ -18,6 +18,8 @@ class JobCreate(BaseModel):
         description="Job priority",
     )
 
+    model_config = {"protected_namespaces": ()}
+
 
 class JobStatusUpdate(BaseModel):
     """Schema for updating job status."""
@@ -43,7 +45,7 @@ class JobResponse(BaseModel):
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
 
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "protected_namespaces": ()}
 
 
 class JobListResponse(BaseModel):
