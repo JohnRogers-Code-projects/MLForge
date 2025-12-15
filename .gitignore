@@ -49,6 +49,9 @@ htmlcov/
 .env.*.local
 *.env
 
+# Claude local settings
+.claude/*.local.json
+
 # Node.js
 node_modules/
 .next/
