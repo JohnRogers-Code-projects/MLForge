@@ -271,7 +271,8 @@ class LocalStorageService(StorageService):
         resolved = (self.base_path / safe_path).resolve()
 
         # Security: ensure resolved path is within base_path
-        if not str(resolved).startswith(str(self.base_path)):
+        # Use is_relative_to for robust directory traversal protection (Python 3.9+)
+        if not resolved.is_relative_to(self.base_path):
             raise StorageError("Invalid path: directory traversal detected")
 
         return resolved
