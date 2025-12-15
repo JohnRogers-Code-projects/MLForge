@@ -194,6 +194,7 @@ async def test_upload_model_file_no_filename(client: AsyncClient):
         "/api/v1/models",
         json={"name": "no-filename-model", "version": "1.0.0"},
     )
+    assert create_response.status_code == 201
     model_id = create_response.json()["id"]
 
     # Upload file without filename - FastAPI validates this as 422
