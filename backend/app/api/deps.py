@@ -8,9 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.crud import model_crud
 from app.models.ml_model import MLModel
+from app.services.storage import StorageService, get_storage_service
 
 # Database session dependency
 DBSession = Annotated[AsyncSession, Depends(get_db)]
+
+# Storage service dependency
+StorageDep = Annotated[StorageService, Depends(get_storage_service)]
 
 
 async def get_model_or_404(

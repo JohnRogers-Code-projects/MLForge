@@ -1,15 +1,19 @@
 """API routes for ML model management."""
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, UploadFile, status
 
-from app.api.deps import DBSession, ModelDep
+from app.api.deps import DBSession, ModelDep, StorageDep
+from app.config import settings
 from app.crud import model_crud
+from app.models.ml_model import ModelStatus
 from app.schemas.ml_model import (
     ModelCreate,
     ModelListResponse,
     ModelResponse,
     ModelUpdate,
+    ModelUploadResponse,
 )
+from app.services.storage import StorageError, StorageFullError
 
 router = APIRouter()
 
@@ -89,3 +93,79 @@ async def delete_model(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Model with id {model.id} not found",
         )
+
+
+@router.post("/{model_id}/upload", response_model=ModelUploadResponse)
+async def upload_model_file(
+    model: ModelDep,
+    file: UploadFile,
+    db: DBSession,
+    storage: StorageDep,
+) -> ModelUploadResponse:
+    """Upload an ONNX model file.
+
+    Validates the file extension and size, stores it via the storage service,
+    and updates the model record with file metadata.
+    """
+    # Validate file extension
+    allowed_extensions = {".onnx"}
+    if file.filename:
+        file_ext = "." + file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+        if file_ext not in allowed_extensions:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid file extension. Allowed: {', '.join(allowed_extensions)}",
+            )
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Filename is required",
+        )
+
+    # Check if model already has a file
+    if model.file_path:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Model already has an uploaded file. Delete the model and create a new one to upload a different file.",
+        )
+
+    # Generate storage filename using model ID for uniqueness
+    storage_filename = f"{model.id}.onnx"
+
+    try:
+        # Save file via storage service (handles size validation internally)
+        file_path, file_size, file_hash = await storage.save(
+            file=file.file,
+            filename=storage_filename,
+            max_size_bytes=settings.max_model_size_bytes,
+        )
+    except StorageFullError as e:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=str(e),
+        )
+    except StorageError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Storage error: {e}",
+        )
+
+    # Update model record
+    updated = await model_crud.update(
+        db,
+        db_obj=model,
+        obj_in={
+            "file_path": file_path,
+            "file_size_bytes": file_size,
+            "file_hash": file_hash,
+            "status": ModelStatus.UPLOADED,
+        },
+    )
+
+    return ModelUploadResponse(
+        id=updated.id,
+        file_path=file_path,
+        file_size_bytes=file_size,
+        file_hash=file_hash,
+        status=updated.status,
+    )

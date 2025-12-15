@@ -1,6 +1,7 @@
 """Pytest fixtures for testing."""
 
 import asyncio
+from pathlib import Path
 from typing import AsyncGenerator, Generator
 
 import pytest
@@ -11,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.config import Settings
 from app.database import Base, get_db
 from app.main import app
+from app.services.storage import LocalStorageService, get_storage_service
 
 
 # Use SQLite for testing
@@ -69,13 +71,25 @@ async def db_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
 
 
 @pytest_asyncio.fixture(scope="function")
-async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
-    """Create test HTTP client."""
+async def test_storage(tmp_path: Path) -> LocalStorageService:
+    """Create test storage service with temp directory."""
+    return LocalStorageService(base_path=str(tmp_path / "models"), max_size_mb=10)
+
+
+@pytest_asyncio.fixture(scope="function")
+async def client(
+    db_session: AsyncSession, test_storage: LocalStorageService
+) -> AsyncGenerator[AsyncClient, None]:
+    """Create test HTTP client with overridden dependencies."""
 
     async def override_get_db():
         yield db_session
 
+    def override_get_storage():
+        return test_storage
+
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_storage_service] = override_get_storage
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:

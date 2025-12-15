@@ -43,6 +43,11 @@ class Settings(BaseSettings):
     max_model_size_mb: int = 500
 
     @property
+    def max_model_size_bytes(self) -> int:
+        """Max model size in bytes."""
+        return self.max_model_size_mb * 1024 * 1024
+
+    @property
     def is_production(self) -> bool:
         return self.environment == "production"
 
