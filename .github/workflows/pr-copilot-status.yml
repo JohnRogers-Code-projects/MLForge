@@ -1,0 +1,42 @@
+# Workflow: PR Copilot Status
+#
+# Sets initial pending status when PRs are opened or updated.
+# This ensures the copilot-review check exists before Copilot reviews.
+#
+# The status will be updated by copilot-review-handler.yml when
+# Copilot submits its review.
+
+name: PR Copilot Status
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  statuses: write
+
+jobs:
+  set-pending-status:
+    name: Set Pending Copilot Review Status
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set pending status
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+
+            console.log(`Setting pending copilot-review status for PR #${pr.number}`);
+            console.log(`Commit SHA: ${pr.head.sha}`);
+
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: pr.head.sha,
+              state: 'pending',
+              context: 'copilot-review',
+              description: 'Awaiting Copilot code review',
+            });
+
+            console.log('Pending status set successfully');
