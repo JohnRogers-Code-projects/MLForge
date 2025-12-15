@@ -218,6 +218,7 @@ async def test_upload_model_file_already_uploaded(
         "/api/v1/models",
         json={"name": "duplicate-upload-model", "version": "1.0.0"},
     )
+    assert create_response.status_code == 201
     model_id = create_response.json()["id"]
 
     # Upload file first time
