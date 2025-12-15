@@ -3,57 +3,29 @@
 ## Repository Overview
 **ModelForge** is a production-ready ML model serving platform built with FastAPI for backend API, ONNX Runtime for model inference, PostgreSQL for data storage, Redis for caching, Celery for async job processing, and Next.js for the management dashboard (Phase 5, not yet implemented).
 
-**Project Size**: Small-to-medium Python backend (~2,000 lines of code)  
-**Languages**: Python 3.11+ (tested with 3.12.3)  
-**Frameworks**: FastAPI 0.109, SQLAlchemy 2.0 (async), Alembic, pytest  
-**Dependencies**: asyncpg, Redis, ONNX Runtime, Celery, Pydantic 2.5  
-**Status**: Phase 1 complete (core backend), Phase 2-7 planned
+**Project Size**: Small-to-medium Python backend (~2,500 lines of code)
+**Languages**: Python 3.11+ (tested with 3.12.3)
+**Frameworks**: FastAPI 0.109, SQLAlchemy 2.0 (async), Alembic, pytest
+**Dependencies**: asyncpg, Redis, ONNX Runtime, Celery, Pydantic 2.5
+**Status**: Phase 1 complete, Phase 2 in progress (PR 2.0 and 2.1 merged)
 
 ---
 
-## Critical Known Issues ⚠️
+## Recent Changes (December 2025)
 
-### 1. SQLAlchemy Reserved Name Conflict (BLOCKING)
-**Problem**: The `MLModel` class in `backend/app/models/ml_model.py` has a field named `metadata` (line 56), which is a reserved name in SQLAlchemy's Declarative API.
+### PR #12: Fixed Blocking Issues ✅
+The following issues have been **resolved**:
 
-**Impact**: Application, tests, and migrations **will not run** until fixed.
+1. **SQLAlchemy `metadata` field** → Renamed to `model_metadata` throughout codebase
+2. **ONNX Runtime version** → Updated to `>=1.17.0` in requirements.txt
+3. **Pydantic namespace warnings** → Added `protected_namespaces=()` to all affected schemas
+4. **SQLite UUID compatibility** → Changed from PostgreSQL-specific `UUID` to SQLAlchemy 2.0 generic `Uuid`
 
-**Error**:
-```
-sqlalchemy.exc.InvalidRequestError: Attribute name 'metadata' is reserved when using the Declarative API.
-```
-
-**Workaround**: Rename the field to `model_metadata` or `meta_data` in:
-- `backend/app/models/ml_model.py` (line 56)
-- `backend/app/schemas/ml_model.py` (corresponding schema field)
-- `backend/alembic/versions/001_initial_migration.py` (line 38)
-- Any CRUD operations or API handlers using this field
-
-### 2. ONNX Runtime Version Incompatibility
-**Problem**: `requirements.txt` specifies `onnxruntime==1.16.3`, which is unavailable in PyPI.
-
-**Error**:
-```
-ERROR: Could not find a version that satisfies the requirement onnxruntime==1.16.3
-```
-
-**Workaround**: Use `onnxruntime>=1.17.0` instead. Version 1.23.2 has been tested and works.
-
-### 3. Pydantic Protected Namespace Warning
-**Problem**: `backend/app/config.py` has a field `model_storage_path` that conflicts with Pydantic's protected "model_" namespace.
-
-**Warning**:
-```
-UserWarning: Field "model_storage_path" has conflict with protected namespace "model_".
-```
-
-**Workaround**: Add to `Settings` class in `backend/app/config.py`:
-```python
-model_config = SettingsConfigDict(
-    ...,
-    protected_namespaces=('settings_',)
-)
-```
+### PR #13: Storage Service ✅
+- Added `backend/app/services/` module
+- `StorageService` abstract base class for file operations
+- `LocalStorageService` implementation with security features (directory traversal prevention, size limits, SHA-256 hashing)
+- 19 unit tests for storage service
 
 ---
 
@@ -78,7 +50,6 @@ source venv/bin/activate  # Linux/Mac
 venv\Scripts\activate     # Windows
 
 # 4. Install dependencies
-# NOTE: Fix onnxruntime version first if not already done
 pip install -r requirements.txt
 
 # 5. Copy environment file
@@ -97,8 +68,6 @@ docker compose up -d db redis
 # 8. Run database migrations
 cd backend
 alembic upgrade head
-
-# NOTE: This will FAIL if the SQLAlchemy metadata issue is not fixed
 ```
 
 **Time Estimates**:
@@ -123,7 +92,12 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 - API docs: `http://localhost:8000/api/v1/docs`
 - ReDoc: `http://localhost:8000/api/v1/redoc`
 
-**IMPORTANT**: The application will **not start** until the SQLAlchemy `metadata` field conflict is resolved.
+**Alternative: Run via Docker Compose** (recommended):
+```bash
+docker-compose up -d --build
+# API available at http://localhost:8000
+# Run tests: docker-compose exec api pytest -v
+```
 
 ### Running Tests
 
@@ -145,11 +119,10 @@ pytest tests/test_health.py -v
 ```
 
 **Test Configuration**: Defined in `backend/pytest.ini`
-- Uses SQLite for testing (`sqlite+aiosqlite:///./test.db`)
+- Uses SQLite for testing (in-memory)
 - Async mode enabled
 - Test fixtures in `backend/tests/conftest.py`
-
-**IMPORTANT**: Tests will **not run** until the SQLAlchemy `metadata` field conflict is resolved.
+- Currently 35 tests (16 API + 19 storage service)
 
 ### Database Migrations
 
@@ -173,7 +146,8 @@ alembic downgrade -1  # Go back one version
 ```
 
 **Migration Files**: Located in `backend/alembic/versions/`
-- Current: `001_initial_migration.py` (creates ml_models, predictions, jobs tables)
+- `001_initial_migration.py` - Creates ml_models, predictions, jobs tables
+- `002_rename_metadata_to_model_metadata.py` - Renames metadata field
 
 ### Docker Commands
 
@@ -206,31 +180,36 @@ docker compose down -v
 ### Directory Structure
 ```
 ModelForge/
-├── .github/                  # GitHub configuration (no CI/CD workflows yet)
+├── .github/                  # GitHub configuration
+│   └── copilot-instructions.md  # This file
 ├── backend/                  # Python FastAPI backend
 │   ├── app/
 │   │   ├── api/             # API route handlers (health, models, predictions, jobs)
-│   │   ├── crud/            # Database CRUD operations (~350 lines)
+│   │   ├── crud/            # Database CRUD operations
 │   │   ├── models/          # SQLAlchemy ORM models (MLModel, Prediction, Job)
 │   │   ├── schemas/         # Pydantic request/response schemas
+│   │   ├── services/        # Business logic services
+│   │   │   ├── __init__.py
+│   │   │   └── storage.py   # StorageService for file operations
 │   │   ├── config.py        # Pydantic Settings (env var management)
 │   │   ├── database.py      # Async SQLAlchemy engine & session
 │   │   └── main.py          # FastAPI app entry point
 │   ├── alembic/             # Database migrations
 │   │   ├── env.py           # Alembic async configuration
-│   │   └── versions/        # Migration scripts
+│   │   └── versions/        # Migration scripts (001, 002)
 │   ├── tests/               # Pytest test suite
 │   │   ├── conftest.py      # Test fixtures (SQLite test DB, async client)
 │   │   ├── test_health.py   # Health endpoint tests
 │   │   ├── test_models.py   # Model CRUD tests
-│   │   └── test_jobs.py     # Job management tests
+│   │   ├── test_jobs.py     # Job management tests
+│   │   └── test_storage.py  # Storage service tests
 │   ├── alembic.ini          # Alembic configuration
 │   ├── pytest.ini           # Pytest configuration
-│   ├── requirements.txt     # Python dependencies (FIX onnxruntime version!)
+│   ├── requirements.txt     # Python dependencies
 │   └── Dockerfile           # Container image definition
 ├── docker-compose.yml       # Local dev services (PostgreSQL, Redis)
 ├── README.md                # User-facing documentation
-└── CLAUDE.md                # Phased build plan (Phase 1 complete)
+└── CLAUDE.md                # Phased build plan
 ```
 
 ### Key Configuration Files
@@ -280,7 +259,7 @@ ModelForge/
 ### Database Models
 
 **MLModel** (`backend/app/models/ml_model.py`):
-- Fields: id (UUID), name, version, status, file_path, input_schema, output_schema, **metadata** ⚠️
+- Fields: id (UUID), name, version, status, file_path, input_schema, output_schema, model_metadata
 - Status enum: PENDING, VALIDATING, READY, ERROR, ARCHIVED
 - Relationships: predictions (one-to-many), jobs (one-to-many)
 
@@ -294,24 +273,31 @@ ModelForge/
 - Priority enum: LOW, NORMAL, HIGH
 - Used for async inference jobs (Phase 4, not fully implemented)
 
+### Services
+
+**StorageService** (`backend/app/services/storage.py`):
+- Abstract base class defining file storage interface
+- `LocalStorageService` implementation for filesystem storage
+- Features: size limits, SHA-256 hashing, directory traversal prevention
+- Singleton access via `get_storage_service()`
+
 ---
 
 ## Validation & Testing
 
 ### No CI/CD Pipeline Yet
-**There are NO GitHub Actions workflows configured.** All validation must be done locally:
+**There are NO GitHub Actions workflows configured.** All validation must be done locally or via Docker:
 
 1. **Lint** (not configured): No linter setup (flake8, black, ruff, mypy)
 2. **Format** (not configured): No formatter configured
 3. **Type Check** (not configured): No mypy or type checking
-4. **Tests**: Run `pytest -v --cov=app` manually
+4. **Tests**: Run `pytest -v --cov=app` manually or `docker-compose exec api pytest -v`
 5. **Migrations**: Run `alembic upgrade head` to validate DB schema
 
 ### Manual Validation Checklist
 Before committing changes:
-- [ ] Fix SQLAlchemy `metadata` field conflict if modifying models
-- [ ] Activate virtual environment
-- [ ] Run `pytest -v` (all tests pass)
+- [ ] Activate virtual environment (or use Docker)
+- [ ] Run `pytest -v` (all 35 tests pass)
 - [ ] Run `alembic upgrade head` (migrations apply cleanly)
 - [ ] Start API server and check `http://localhost:8000/api/v1/docs`
 - [ ] Test modified endpoints via Swagger UI or curl
@@ -322,27 +308,27 @@ Before committing changes:
 ## Common Pitfalls & Solutions
 
 ### Issue: "Module 'app' has no attribute X"
-**Cause**: Import ordering or missing `__init__.py`  
+**Cause**: Import ordering or missing `__init__.py`
 **Solution**: Ensure all directories have `__init__.py` and check circular imports
 
 ### Issue: "connection refused" errors
-**Cause**: PostgreSQL or Redis not running  
+**Cause**: PostgreSQL or Redis not running
 **Solution**: Run `docker compose up -d db redis` and wait 5-10 seconds
 
 ### Issue: "Alembic can't find models"
-**Cause**: Models not imported in `alembic/env.py`  
+**Cause**: Models not imported in `alembic/env.py`
 **Solution**: Add imports: `from app.models import MLModel, Prediction, Job`
 
 ### Issue: "Database already exists" on fresh setup
-**Cause**: Previous Docker volumes  
+**Cause**: Previous Docker volumes
 **Solution**: Run `docker compose down -v` to remove volumes
 
 ### Issue: "Test database file locked"
-**Cause**: Previous test run didn't clean up  
+**Cause**: Previous test run didn't clean up
 **Solution**: Delete `backend/test.db` file manually
 
 ### Issue: Docker Compose version warning
-**Warning**: `version` attribute is obsolete in `docker-compose.yml`  
+**Warning**: `version` attribute is obsolete in `docker-compose.yml`
 **Impact**: Harmless warning, can be ignored or remove `version: "3.8"` line
 
 ---
@@ -367,11 +353,16 @@ Before committing changes:
 7. Create API endpoints in `backend/app/api/`
 8. Write tests in `backend/tests/`
 
+### Adding New Services
+1. Create service in `backend/app/services/`
+2. Export from `backend/app/services/__init__.py`
+3. Write unit tests in `backend/tests/test_<service>.py`
+4. Inject via FastAPI dependencies if needed
+
 ### Adding Dependencies
 1. Add to `requirements.txt`
-2. **Check onnxruntime version compatibility** (use >=1.17.0)
-3. Install: `pip install -r requirements.txt`
-4. Test: Ensure application still starts
+2. Install: `pip install -r requirements.txt`
+3. Test: Ensure application still starts
 
 ---
 
@@ -382,6 +373,8 @@ Before committing changes:
 - **Config**: `backend/app/config.py`
 - **Database setup**: `backend/app/database.py`
 - **Models**: `backend/app/models/`
+- **Schemas**: `backend/app/schemas/`
+- **Services**: `backend/app/services/`
 - **API routes**: `backend/app/api/`
 - **Tests**: `backend/tests/`
 - **Migrations**: `backend/alembic/versions/`
@@ -409,16 +402,19 @@ MAX_MODEL_SIZE_MB=500
 ## Trust These Instructions
 
 **These instructions have been validated by**:
-1. Creating a fresh virtual environment
-2. Installing dependencies (with onnxruntime fix)
-3. Starting Docker services
-4. Attempting migrations (fails due to known SQLAlchemy issue)
-5. Reviewing all configuration files
-6. Checking test infrastructure
+1. Running all 35 tests successfully via Docker
+2. Starting API server and verifying all endpoints work
+3. Applying all migrations (001 initial + 002 rename metadata)
+4. Reviewing all configuration files
+5. Verifying storage service functionality
 
 **Only search for additional information if**:
 - These instructions are incomplete for your specific task
 - You encounter an error not documented here
 - You need to understand implementation details beyond this reference
 
-**For routine tasks** (adding endpoints, tests, CRUD operations), trust these instructions and proceed directly.
+**For routine tasks** (adding endpoints, tests, CRUD operations, services), trust these instructions and proceed directly.
+
+---
+
+*Last updated: December 2025 (after PR #12 and #13 merge)*
