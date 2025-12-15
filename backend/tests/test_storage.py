@@ -45,7 +45,7 @@ class TestLocalStorageService:
         path, size, file_hash = await storage_service.save(sample_file, "test.onnx")
 
         assert path == "test.onnx"
-        assert size == 52  # Length of sample content
+        assert size == len(sample_file.getvalue())  # Length of sample content
         assert len(file_hash) == 64  # SHA-256 hex length
         assert await storage_service.exists(path)
 
