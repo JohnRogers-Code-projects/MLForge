@@ -63,3 +63,16 @@ class ModelListResponse(BaseModel):
     page: int
     page_size: int
     total_pages: int
+
+
+class ModelUploadResponse(BaseModel):
+    """Schema for model file upload response."""
+
+    id: str
+    file_path: str
+    file_size_bytes: int
+    file_hash: str
+    status: ModelStatus
+    message: str = "File uploaded successfully"
+
+    model_config = {"protected_namespaces": ()}

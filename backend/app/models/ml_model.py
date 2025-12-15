@@ -20,6 +20,7 @@ class ModelStatus(str, enum.Enum):
     """Status of an ML model."""
 
     PENDING = "pending"
+    UPLOADED = "uploaded"
     VALIDATING = "validating"
     READY = "ready"
     ERROR = "error"
