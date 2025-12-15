@@ -151,16 +151,24 @@ async def upload_model_file(
         )
 
     # Update model record
-    updated = await model_crud.update(
-        db,
-        db_obj=model,
-        obj_in={
-            "file_path": file_path,
-            "file_size_bytes": file_size,
-            "file_hash": file_hash,
-            "status": ModelStatus.UPLOADED,
-        },
-    )
+    try:
+        updated = await model_crud.update(
+            db,
+            db_obj=model,
+            obj_in={
+                "file_path": file_path,
+                "file_size_bytes": file_size,
+                "file_hash": file_hash,
+                "status": ModelStatus.UPLOADED,
+            },
+        )
+    except Exception as db_exc:
+        # Attempt to clean up the saved file if DB update fails
+        try:
+            await storage.delete(file_path)
+        except Exception:
+            pass  # Optionally log this error
+        raise db_exc
 
     return ModelUploadResponse(
         id=updated.id,
