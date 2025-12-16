@@ -86,9 +86,8 @@ async def list_model_versions(
             detail=f"No model found with name '{name}'",
         )
 
-    # Get the latest version
-    latest = await model_crud.get_latest_by_name(db, name=name)
-    latest_version = latest.version if latest else None
+    # The latest version is the first in the sorted list
+    latest_version = versions[0].version if versions else None
 
     return ModelVersionsResponse(
         name=name,
