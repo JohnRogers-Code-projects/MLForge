@@ -13,6 +13,8 @@ from app.schemas.ml_model import (
     ModelUpdate,
     ModelUploadResponse,
     ModelValidateResponse,
+    ModelVersionsResponse,
+    ModelVersionSummary,
     TensorSchemaResponse,
 )
 from app.services.storage import StorageError, StorageFullError
@@ -65,6 +67,73 @@ async def list_models(
         page_size=page_size,
         total_pages=total_pages,
     )
+
+
+@router.get("/by-name/{name}/versions", response_model=ModelVersionsResponse)
+async def list_model_versions(
+    name: str,
+    db: DBSession,
+) -> ModelVersionsResponse:
+    """List all versions of a model by name.
+
+    Returns all versions sorted by semantic version (highest first).
+    """
+    versions = await model_crud.get_versions_by_name(db, name=name)
+
+    if not versions:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No model found with name '{name}'",
+        )
+
+    # Get the latest version
+    latest = await model_crud.get_latest_by_name(db, name=name)
+    latest_version = latest.version if latest else None
+
+    return ModelVersionsResponse(
+        name=name,
+        versions=[
+            ModelVersionSummary(
+                id=v.id,
+                version=v.version,
+                status=v.status,
+                created_at=v.created_at,
+            )
+            for v in versions
+        ],
+        total=len(versions),
+        latest_version=latest_version,
+    )
+
+
+@router.get("/by-name/{name}/latest", response_model=ModelResponse)
+async def get_latest_model_version(
+    name: str,
+    db: DBSession,
+    ready_only: bool = Query(
+        False,
+        description="If true, only return the latest READY version",
+    ),
+) -> ModelResponse:
+    """Get the latest version of a model by name.
+
+    Uses semantic versioning to determine the latest version.
+    Optionally filter to only return READY models.
+    """
+    model = await model_crud.get_latest_by_name(db, name=name, ready_only=ready_only)
+
+    if not model:
+        if ready_only:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No ready model found with name '{name}'",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No model found with name '{name}'",
+        )
+
+    return ModelResponse.model_validate(model)
 
 
 @router.get("/{model_id}", response_model=ModelResponse)

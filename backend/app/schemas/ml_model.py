@@ -99,3 +99,23 @@ class ModelValidateResponse(BaseModel):
     message: str = "Model validated successfully"
 
     model_config = {"protected_namespaces": ()}
+
+
+class ModelVersionSummary(BaseModel):
+    """Summary of a model version."""
+
+    id: str
+    version: str
+    status: ModelStatus
+    created_at: datetime
+
+    model_config = {"from_attributes": True, "protected_namespaces": ()}
+
+
+class ModelVersionsResponse(BaseModel):
+    """Response for listing model versions."""
+
+    name: str
+    versions: list[ModelVersionSummary]
+    total: int
+    latest_version: Optional[str] = None
