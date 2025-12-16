@@ -199,10 +199,11 @@ class TestGetLatestVersion:
         """Get latest returns the highest semantic version."""
         versions = ["1.0.0", "1.5.0", "2.0.0", "1.10.0"]
         for version in versions:
-            await client.post(
+            response = await client.post(
                 "/api/v1/models",
                 json={"name": "get-latest-model", "version": version},
             )
+            assert response.status_code == 201
 
         response = await client.get("/api/v1/models/by-name/get-latest-model/latest")
 
