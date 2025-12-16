@@ -12,8 +12,11 @@ from app.services.onnx import (
     ONNXError,
     ONNXLoadError,
     ONNXValidationError,
+    ONNXInferenceError,
+    ONNXInputError,
     TensorSchema,
     ValidationResult,
+    InferenceResult,
     get_onnx_service,
 )
 
@@ -29,7 +32,10 @@ __all__ = [
     "ONNXError",
     "ONNXLoadError",
     "ONNXValidationError",
+    "ONNXInferenceError",
+    "ONNXInputError",
     "TensorSchema",
     "ValidationResult",
+    "InferenceResult",
     "get_onnx_service",
 ]
