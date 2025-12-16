@@ -134,12 +134,12 @@ backend/
 - [x] Create Prediction record in database
 - [x] Integration tests for inference (22 new tests, 91 total tests)
 
-#### PR 2.5: Model Versioning
-- [ ] Add version uniqueness constraint (name + version)
-- [ ] Implement version comparison logic
-- [ ] Add `/models/{id}/versions` endpoint to list versions
-- [ ] Add "latest" alias resolution
-- [ ] Migration and tests
+#### PR 2.5: Model Versioning ✅ COMPLETE
+- [x] Add version uniqueness constraint (name + version)
+- [x] Implement version comparison logic (semantic versioning)
+- [x] Add `/models/by-name/{name}/versions` endpoint to list versions
+- [x] Add `/models/by-name/{name}/latest` endpoint with ready_only filter
+- [x] Migration and tests (22 new tests, 113 total tests)
 
 ---
 
@@ -314,10 +314,10 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 
 ## Current Status
 - **Phase 1**: ✅ COMPLETE
-- **Phase 2**: 🚧 IN PROGRESS (PRs 2.0-2.4 complete)
-- **Next PR**: PR 2.5 (Model Versioning)
+- **Phase 2**: ✅ COMPLETE (PRs 2.0-2.5 all done)
+- **Next PR**: PR 3.1 (Redis Connection Manager)
 - **Last Updated**: 2025-12-16
-- **Test Count**: 91 tests passing
+- **Test Count**: 113 tests passing
 
 ## Session Notes
 - 2025-12-15: Merged Copilot onboarding PRs (#10, #6), closed duplicate (#9), removed blocking ruleset
@@ -326,3 +326,4 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - 2025-12-15: Completed PR 2.0 (blocking issues), PR 2.1 (storage service), PR 2.2 (upload endpoint)
 - 2025-12-16: Completed PR 2.3 - ONNX Validation Service (ONNXService, validation endpoint, 27 new tests)
 - 2025-12-16: Completed PR 2.4 - Synchronous Inference Endpoint (session caching, predict endpoint, 22 new tests)
+- 2025-12-16: Completed PR 2.5 - Model Versioning (unique constraint, semver comparison, version endpoints)

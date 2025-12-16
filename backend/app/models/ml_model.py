@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 from uuid import uuid4
 
-from sqlalchemy import DateTime, Enum, Integer, String, Text, Uuid, func
+from sqlalchemy import DateTime, Enum, Integer, String, Text, UniqueConstraint, Uuid, func
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -31,6 +31,9 @@ class MLModel(Base):
     """Represents an ML model in the system."""
 
     __tablename__ = "ml_models"
+    __table_args__ = (
+        UniqueConstraint("name", "version", name="uq_model_name_version"),
+    )
 
     id: Mapped[str] = mapped_column(
         Uuid(as_uuid=False),
