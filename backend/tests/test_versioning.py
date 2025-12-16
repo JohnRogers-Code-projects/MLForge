@@ -241,7 +241,7 @@ class TestGetLatestVersion:
             "/api/v1/models/by-name/ready-filter-model/latest?ready_only=true"
         )
         assert response.status_code == 404
-        assert "ready" in response.json()["detail"].lower()
+        assert "ready" in response.json()["detail"]
 
     @pytest.mark.asyncio
     async def test_get_latest_includes_full_model_data(self, client: AsyncClient):
