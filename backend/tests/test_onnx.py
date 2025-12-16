@@ -8,8 +8,11 @@ import pytest
 from app.services.onnx import (
     ONNXService,
     ONNXLoadError,
+    ONNXInputError,
+    ONNXInferenceError,
     TensorSchema,
     ValidationResult,
+    InferenceResult,
     get_onnx_service,
     set_onnx_service,
 )
@@ -317,3 +320,150 @@ class TestONNXServiceDtypeConversion:
 
         assert result.valid is True
         assert result.input_schema[0].dtype == "float64"
+
+
+class TestONNXServiceInference:
+    """Tests for ONNX model inference."""
+
+    def test_run_inference_correct_output(
+        self, onnx_service: ONNXService, onnx_model_path: Path
+    ):
+        """Verify inference produces mathematically correct results.
+
+        The test model computes output = input + 1.
+        """
+        input_data = {"input": [[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]]}
+        result = onnx_service.run_inference(onnx_model_path, input_data)
+
+        assert isinstance(result, InferenceResult)
+        assert "output" in result.outputs
+
+        # Verify output = input + 1
+        expected = [2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0]
+        actual = result.outputs["output"][0]
+        for a, e in zip(actual, expected):
+            assert abs(a - e) < 0.001, f"Expected {e}, got {a}"
+
+    def test_run_inference_batch(
+        self, onnx_service: ONNXService, onnx_model_path: Path
+    ):
+        """Test inference with batch input."""
+        input_data = {
+            "input": [
+                [0.0] * 10,
+                [5.0] * 10,
+            ]
+        }
+        result = onnx_service.run_inference(onnx_model_path, input_data)
+
+        # First sample: 0 + 1 = 1
+        assert all(abs(v - 1.0) < 0.001 for v in result.outputs["output"][0])
+        # Second sample: 5 + 1 = 6
+        assert all(abs(v - 6.0) < 0.001 for v in result.outputs["output"][1])
+
+    def test_run_inference_records_time(
+        self, onnx_service: ONNXService, onnx_model_path: Path
+    ):
+        """Verify inference time is recorded."""
+        input_data = {"input": [[1.0] * 10]}
+        result = onnx_service.run_inference(onnx_model_path, input_data)
+
+        assert result.inference_time_ms > 0
+        # Should be fast (less than 1 second)
+        assert result.inference_time_ms < 1000
+
+    def test_run_inference_missing_input_raises(
+        self, onnx_service: ONNXService, onnx_model_path: Path
+    ):
+        """Error when required input is missing."""
+        with pytest.raises(ONNXInputError) as exc_info:
+            onnx_service.run_inference(onnx_model_path, {"wrong_name": [[1.0] * 10]})
+
+        assert "missing" in str(exc_info.value).lower()
+        assert "input" in str(exc_info.value).lower()
+
+    def test_run_inference_nonexistent_model_raises(
+        self, onnx_service: ONNXService, tmp_path: Path
+    ):
+        """Error when model file doesn't exist."""
+        with pytest.raises(ONNXLoadError):
+            onnx_service.run_inference(
+                tmp_path / "nonexistent.onnx",
+                {"input": [[1.0] * 10]},
+            )
+
+    def test_run_inference_to_dict(
+        self, onnx_service: ONNXService, onnx_model_path: Path
+    ):
+        """Verify InferenceResult.to_dict() works correctly."""
+        input_data = {"input": [[1.0] * 10]}
+        result = onnx_service.run_inference(onnx_model_path, input_data)
+
+        result_dict = result.to_dict()
+        assert "outputs" in result_dict
+        assert "inference_time_ms" in result_dict
+        assert isinstance(result_dict["outputs"], dict)
+
+
+class TestONNXServiceSessionCaching:
+    """Tests for session caching."""
+
+    def test_get_cached_session_returns_same_session(
+        self, onnx_service: ONNXService, onnx_model_path: Path
+    ):
+        """Same session is returned for repeated calls."""
+        session1, _, _ = onnx_service.get_cached_session(onnx_model_path)
+        session2, _, _ = onnx_service.get_cached_session(onnx_model_path)
+
+        # Same object in memory
+        assert session1 is session2
+
+    def test_clear_cache(
+        self, onnx_service: ONNXService, onnx_model_path: Path
+    ):
+        """Clear cache removes all sessions."""
+        # Load a session
+        onnx_service.get_cached_session(onnx_model_path)
+        assert len(onnx_service._session_cache) == 1
+
+        # Clear cache
+        onnx_service.clear_cache()
+        assert len(onnx_service._session_cache) == 0
+
+    def test_remove_from_cache(
+        self, onnx_service: ONNXService, onnx_model_path: Path
+    ):
+        """Remove specific model from cache."""
+        # Load a session
+        onnx_service.get_cached_session(onnx_model_path)
+        assert len(onnx_service._session_cache) == 1
+
+        # Remove it
+        removed = onnx_service.remove_from_cache(onnx_model_path)
+        assert removed is True
+        assert len(onnx_service._session_cache) == 0
+
+        # Removing again returns False
+        removed = onnx_service.remove_from_cache(onnx_model_path)
+        assert removed is False
+
+    def test_cached_inference_is_faster(
+        self, onnx_service: ONNXService, onnx_model_path: Path
+    ):
+        """Second inference should use cached session (faster overall)."""
+        input_data = {"input": [[1.0] * 10]}
+
+        # Clear cache first
+        onnx_service.clear_cache()
+
+        # First call loads the session
+        result1 = onnx_service.run_inference(onnx_model_path, input_data)
+
+        # Second call uses cached session
+        result2 = onnx_service.run_inference(onnx_model_path, input_data)
+
+        # Both should produce same output
+        assert result1.outputs["output"] == result2.outputs["output"]
+
+        # Cache should have exactly one entry
+        assert len(onnx_service._session_cache) == 1

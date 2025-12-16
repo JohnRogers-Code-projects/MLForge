@@ -5,10 +5,12 @@ from ONNX models using the ONNX Runtime. It handles schema extraction for
 input/output tensors and model metadata like opset version and producer info.
 """
 
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
+import numpy as np
 import onnxruntime as ort
 
 
@@ -26,6 +28,18 @@ class ONNXLoadError(ONNXError):
 
 class ONNXValidationError(ONNXError):
     """Raised when ONNX model validation fails."""
+
+    pass
+
+
+class ONNXInferenceError(ONNXError):
+    """Raised when ONNX inference fails."""
+
+    pass
+
+
+class ONNXInputError(ONNXError):
+    """Raised when input data is invalid for the model."""
 
     pass
 
@@ -50,6 +64,26 @@ class TensorSchema:
             "name": self.name,
             "dtype": self.dtype,
             "shape": self.shape,
+        }
+
+
+@dataclass
+class InferenceResult:
+    """Result of running inference on an ONNX model.
+
+    Attributes:
+        outputs: Dictionary mapping output names to numpy arrays (converted to lists)
+        inference_time_ms: Time taken for inference in milliseconds
+    """
+
+    outputs: dict[str, Any]
+    inference_time_ms: float
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "outputs": self.outputs,
+            "inference_time_ms": self.inference_time_ms,
         }
 
 
@@ -109,6 +143,7 @@ class ONNXService:
     - Load and validate ONNX models
     - Extract input/output tensor schemas
     - Extract model metadata (opset version, producer info, etc.)
+    - Run inference with session caching
 
     This service uses ONNX Runtime for model loading which validates
     that models are compatible with the runtime and can be used for inference.
@@ -122,6 +157,8 @@ class ONNXService:
                       Defaults to ['CPUExecutionProvider'].
         """
         self.providers = providers or ["CPUExecutionProvider"]
+        # Session cache: maps resolved path string to (session, input_names, output_names)
+        self._session_cache: dict[str, tuple[ort.InferenceSession, list[str], list[str]]] = {}
 
     def validate(self, model_path: Path | str) -> ValidationResult:
         """Validate an ONNX model and extract its schemas.
@@ -211,6 +248,172 @@ class ONNXService:
             return self._load_session(path)
         except Exception as e:
             raise ONNXLoadError(f"Failed to load model: {str(e)}") from e
+
+    def get_cached_session(
+        self, model_path: Path | str
+    ) -> tuple[ort.InferenceSession, list[str], list[str]]:
+        """Get a cached inference session, loading if necessary.
+
+        Args:
+            model_path: Path to the .onnx model file
+
+        Returns:
+            Tuple of (session, input_names, output_names)
+
+        Raises:
+            ONNXLoadError: If model fails to load
+        """
+        path = Path(model_path).resolve()
+        cache_key = str(path)
+
+        if cache_key not in self._session_cache:
+            session = self.load_session(path)
+            input_names = [inp.name for inp in session.get_inputs()]
+            output_names = [out.name for out in session.get_outputs()]
+            self._session_cache[cache_key] = (session, input_names, output_names)
+
+        return self._session_cache[cache_key]
+
+    def run_inference(
+        self,
+        model_path: Path | str,
+        input_data: dict[str, Any],
+    ) -> InferenceResult:
+        """Run inference on the model with the given input.
+
+        Args:
+            model_path: Path to the .onnx model file
+            input_data: Dictionary mapping input names to data.
+                       Data can be lists or numpy arrays.
+
+        Returns:
+            InferenceResult with outputs and timing
+
+        Raises:
+            ONNXLoadError: If model fails to load
+            ONNXInputError: If input data is invalid
+            ONNXInferenceError: If inference fails
+        """
+        session, input_names, output_names = self.get_cached_session(model_path)
+
+        # Validate all required inputs are provided
+        missing_inputs = set(input_names) - set(input_data.keys())
+        if missing_inputs:
+            raise ONNXInputError(
+                f"Missing required inputs: {', '.join(sorted(missing_inputs))}. "
+                f"Expected inputs: {', '.join(input_names)}"
+            )
+
+        # Convert inputs to numpy arrays with proper dtype
+        try:
+            numpy_inputs = self._prepare_inputs(session, input_data)
+        except Exception as e:
+            raise ONNXInputError(f"Failed to prepare inputs: {str(e)}") from e
+
+        # Run inference with timing
+        try:
+            start_time = time.perf_counter()
+            results = session.run(output_names, numpy_inputs)
+            end_time = time.perf_counter()
+            inference_time_ms = (end_time - start_time) * 1000
+        except Exception as e:
+            raise ONNXInferenceError(f"Inference failed: {str(e)}") from e
+
+        # Convert outputs to serializable format
+        outputs = {}
+        for name, result in zip(output_names, results):
+            # Convert numpy arrays to nested lists for JSON serialization
+            if isinstance(result, np.ndarray):
+                outputs[name] = result.tolist()
+            else:
+                outputs[name] = result
+
+        return InferenceResult(
+            outputs=outputs,
+            inference_time_ms=inference_time_ms,
+        )
+
+    def _prepare_inputs(
+        self,
+        session: ort.InferenceSession,
+        input_data: dict[str, Any],
+    ) -> dict[str, np.ndarray]:
+        """Prepare input data by converting to numpy arrays with correct dtypes.
+
+        Args:
+            session: ONNX Runtime session
+            input_data: Raw input data
+
+        Returns:
+            Dictionary of numpy arrays ready for inference
+        """
+        numpy_inputs = {}
+        input_metas = {inp.name: inp for inp in session.get_inputs()}
+
+        for name, data in input_data.items():
+            if name not in input_metas:
+                # Skip extra inputs (not an error, just ignore)
+                continue
+
+            meta = input_metas[name]
+            onnx_type = meta.type
+
+            # Determine numpy dtype from ONNX type
+            dtype = self._onnx_type_to_numpy_dtype(onnx_type)
+
+            # Convert to numpy array
+            if isinstance(data, np.ndarray):
+                arr = data.astype(dtype)
+            else:
+                arr = np.array(data, dtype=dtype)
+
+            numpy_inputs[name] = arr
+
+        return numpy_inputs
+
+    def _onnx_type_to_numpy_dtype(self, onnx_type: str) -> np.dtype:
+        """Convert ONNX type string to numpy dtype.
+
+        Args:
+            onnx_type: ONNX type string like 'tensor(float)'
+
+        Returns:
+            Numpy dtype
+        """
+        dtype_map = {
+            "tensor(float)": np.float32,
+            "tensor(float16)": np.float16,
+            "tensor(double)": np.float64,
+            "tensor(int8)": np.int8,
+            "tensor(int16)": np.int16,
+            "tensor(int32)": np.int32,
+            "tensor(int64)": np.int64,
+            "tensor(uint8)": np.uint8,
+            "tensor(uint16)": np.uint16,
+            "tensor(uint32)": np.uint32,
+            "tensor(uint64)": np.uint64,
+            "tensor(bool)": np.bool_,
+        }
+        return dtype_map.get(onnx_type, np.float32)
+
+    def clear_cache(self) -> None:
+        """Clear all cached sessions."""
+        self._session_cache.clear()
+
+    def remove_from_cache(self, model_path: Path | str) -> bool:
+        """Remove a specific model from the session cache.
+
+        Args:
+            model_path: Path to the model to remove
+
+        Returns:
+            True if model was in cache and removed, False otherwise
+        """
+        cache_key = str(Path(model_path).resolve())
+        if cache_key in self._session_cache:
+            del self._session_cache[cache_key]
+            return True
+        return False
 
     def _load_session(self, path: Path) -> ort.InferenceSession:
         """Internal method to create inference session.

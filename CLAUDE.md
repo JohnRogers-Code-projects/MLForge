@@ -126,13 +126,13 @@ backend/
 - [x] Add `/models/{id}/validate` POST endpoint
 - [x] Integration tests for validation endpoint (69 total tests)
 
-#### PR 2.4: Synchronous Inference Endpoint
-- [ ] Add `/models/{id}/predict` POST endpoint
-- [ ] Load ONNX model into runtime (with session caching)
-- [ ] Validate input against model's input schema
-- [ ] Run inference and return results
-- [ ] Create Prediction record in database
-- [ ] Integration tests for inference
+#### PR 2.4: Synchronous Inference Endpoint ✅ COMPLETE
+- [x] Add `/models/{id}/predict` POST endpoint
+- [x] Load ONNX model into runtime (with session caching)
+- [x] Validate input against model's input schema
+- [x] Run inference and return results
+- [x] Create Prediction record in database
+- [x] Integration tests for inference (22 new tests, 91 total tests)
 
 #### PR 2.5: Model Versioning
 - [ ] Add version uniqueness constraint (name + version)
@@ -314,10 +314,10 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 
 ## Current Status
 - **Phase 1**: ✅ COMPLETE
-- **Phase 2**: 🚧 IN PROGRESS (PRs 2.0-2.3 complete)
-- **Next PR**: PR 2.4 (Synchronous Inference Endpoint)
+- **Phase 2**: 🚧 IN PROGRESS (PRs 2.0-2.4 complete)
+- **Next PR**: PR 2.5 (Model Versioning)
 - **Last Updated**: 2025-12-16
-- **Test Count**: 69 tests passing
+- **Test Count**: 91 tests passing
 
 ## Session Notes
 - 2025-12-15: Merged Copilot onboarding PRs (#10, #6), closed duplicate (#9), removed blocking ruleset
@@ -325,3 +325,4 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - 2025-12-15: Broke down Phases 2-7 into 22 smaller PRs for easier review
 - 2025-12-15: Completed PR 2.0 (blocking issues), PR 2.1 (storage service), PR 2.2 (upload endpoint)
 - 2025-12-16: Completed PR 2.3 - ONNX Validation Service (ONNXService, validation endpoint, 27 new tests)
+- 2025-12-16: Completed PR 2.4 - Synchronous Inference Endpoint (session caching, predict endpoint, 22 new tests)
