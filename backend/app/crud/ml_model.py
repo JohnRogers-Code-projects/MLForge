@@ -137,7 +137,6 @@ class CRUDModel(CRUDBase[MLModel, ModelCreate, ModelUpdate]):
         result = await db.execute(
             select(MLModel)
             .where(MLModel.name == name)
-            .order_by(MLModel.created_at.desc())  # Initial ordering
         )
         models = list(result.scalars().all())
         # Sort by semantic version (newest first)
