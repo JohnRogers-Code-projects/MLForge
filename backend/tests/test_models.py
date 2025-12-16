@@ -1,8 +1,11 @@
 """Tests for ML model endpoints."""
 
 import io
+import onnx
 import pytest
 from httpx import AsyncClient
+
+from tests.conftest import create_simple_onnx_model
 
 
 @pytest.mark.asyncio
@@ -289,3 +292,184 @@ async def test_upload_case_insensitive_extension(client: AsyncClient):
     response = await client.post(f"/api/v1/models/{model_id}/upload", files=files)
 
     assert response.status_code == 200
+
+
+# Validation endpoint tests
+
+
+@pytest.fixture
+def valid_onnx_file() -> io.BytesIO:
+    """Create a valid ONNX model file for testing."""
+    model = create_simple_onnx_model()
+    buffer = io.BytesIO()
+    onnx.save(model, buffer)
+    buffer.seek(0)
+    return buffer
+
+
+@pytest.mark.asyncio
+async def test_validate_model_success(client: AsyncClient, valid_onnx_file: io.BytesIO):
+    """Test successful model validation."""
+    # Create a model
+    create_response = await client.post(
+        "/api/v1/models",
+        json={"name": "validate-test-model", "version": "1.0.0"},
+    )
+    assert create_response.status_code == 201
+    model_id = create_response.json()["id"]
+
+    # Upload valid ONNX file
+    files = {"file": ("model.onnx", valid_onnx_file, "application/octet-stream")}
+    upload_response = await client.post(f"/api/v1/models/{model_id}/upload", files=files)
+    assert upload_response.status_code == 200
+    assert upload_response.json()["status"] == "uploaded"
+
+    # Validate the model
+    response = await client.post(f"/api/v1/models/{model_id}/validate")
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["id"] == model_id
+    assert data["valid"] is True
+    assert data["status"] == "ready"
+    assert data["error_message"] is None
+    assert data["message"] == "Model validated successfully"
+
+    # Check input schema
+    assert len(data["input_schema"]) == 1
+    assert data["input_schema"][0]["name"] == "input"
+    assert data["input_schema"][0]["dtype"] == "float32"
+    assert data["input_schema"][0]["shape"] == [None, 10]
+
+    # Check output schema
+    assert len(data["output_schema"]) == 1
+    assert data["output_schema"][0]["name"] == "output"
+    assert data["output_schema"][0]["dtype"] == "float32"
+
+    # Check metadata
+    assert data["model_metadata"] is not None
+    assert "providers" in data["model_metadata"]
+
+
+@pytest.mark.asyncio
+async def test_validate_model_updates_record(
+    client: AsyncClient, valid_onnx_file: io.BytesIO
+):
+    """Test that validation updates the model record correctly."""
+    # Create and upload model
+    create_response = await client.post(
+        "/api/v1/models",
+        json={"name": "validate-update-model", "version": "1.0.0"},
+    )
+    model_id = create_response.json()["id"]
+
+    files = {"file": ("model.onnx", valid_onnx_file, "application/octet-stream")}
+    await client.post(f"/api/v1/models/{model_id}/upload", files=files)
+
+    # Validate
+    await client.post(f"/api/v1/models/{model_id}/validate")
+
+    # Get model and verify record was updated
+    get_response = await client.get(f"/api/v1/models/{model_id}")
+    data = get_response.json()
+
+    assert data["status"] == "ready"
+    assert data["input_schema"] is not None
+    assert data["output_schema"] is not None
+    assert data["model_metadata"] is not None
+
+
+@pytest.mark.asyncio
+async def test_validate_model_invalid_onnx(client: AsyncClient):
+    """Test validation with invalid ONNX file."""
+    # Create and upload model with invalid ONNX content
+    create_response = await client.post(
+        "/api/v1/models",
+        json={"name": "invalid-validate-model", "version": "1.0.0"},
+    )
+    model_id = create_response.json()["id"]
+
+    # Upload invalid file (not a real ONNX model)
+    content = io.BytesIO(b"this is not a valid onnx model")
+    files = {"file": ("model.onnx", content, "application/octet-stream")}
+    await client.post(f"/api/v1/models/{model_id}/upload", files=files)
+
+    # Validate - should fail
+    response = await client.post(f"/api/v1/models/{model_id}/validate")
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["valid"] is False
+    assert data["status"] == "error"
+    assert data["error_message"] is not None
+    assert data["message"] == "Model validation failed"
+
+
+@pytest.mark.asyncio
+async def test_validate_model_no_file(client: AsyncClient):
+    """Test validation when model has no uploaded file."""
+    # Create model without uploading file
+    create_response = await client.post(
+        "/api/v1/models",
+        json={"name": "no-file-validate-model", "version": "1.0.0"},
+    )
+    model_id = create_response.json()["id"]
+
+    # Try to validate without uploading
+    response = await client.post(f"/api/v1/models/{model_id}/validate")
+    assert response.status_code == 400
+    assert "Upload a file first" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_validate_model_wrong_status(
+    client: AsyncClient, valid_onnx_file: io.BytesIO
+):
+    """Test validation when model is already validated (READY status)."""
+    # Create, upload, and validate model
+    create_response = await client.post(
+        "/api/v1/models",
+        json={"name": "already-valid-model", "version": "1.0.0"},
+    )
+    model_id = create_response.json()["id"]
+
+    files = {"file": ("model.onnx", valid_onnx_file, "application/octet-stream")}
+    await client.post(f"/api/v1/models/{model_id}/upload", files=files)
+    await client.post(f"/api/v1/models/{model_id}/validate")
+
+    # Try to validate again
+    response = await client.post(f"/api/v1/models/{model_id}/validate")
+    assert response.status_code == 409
+    assert "cannot be validated" in response.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_validate_model_can_revalidate_after_error(client: AsyncClient):
+    """Test that models in ERROR status can be revalidated."""
+    # Create and upload invalid model to get ERROR status
+    create_response = await client.post(
+        "/api/v1/models",
+        json={"name": "revalidate-model", "version": "1.0.0"},
+    )
+    model_id = create_response.json()["id"]
+
+    content = io.BytesIO(b"invalid onnx")
+    files = {"file": ("model.onnx", content, "application/octet-stream")}
+    await client.post(f"/api/v1/models/{model_id}/upload", files=files)
+    await client.post(f"/api/v1/models/{model_id}/validate")
+
+    # Verify status is ERROR
+    get_response = await client.get(f"/api/v1/models/{model_id}")
+    assert get_response.json()["status"] == "error"
+
+    # Try to revalidate - should be allowed (even though it will fail again)
+    response = await client.post(f"/api/v1/models/{model_id}/validate")
+    # Should return 200 (not 409) because ERROR status allows revalidation
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_validate_nonexistent_model(client: AsyncClient):
+    """Test validation of nonexistent model."""
+    response = await client.post("/api/v1/models/nonexistent-id/validate")
+    assert response.status_code == 404

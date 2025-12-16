@@ -116,13 +116,15 @@ backend/
 - [x] Cleanup of stored file if DB update fails
 - [x] 8 integration tests for upload (42 total tests)
 
-#### PR 2.3: ONNX Validation Service
-- [ ] Implement `ONNXService` for model operations
-- [ ] Add ONNX model validation (load and verify)
-- [ ] Extract input/output schema from ONNX model
-- [ ] Extract model metadata (opset version, producer, etc.)
-- [ ] Update MLModel status to READY or ERROR
-- [ ] Unit tests with sample ONNX models
+#### PR 2.3: ONNX Validation Service ✅ COMPLETE
+- [x] Implement `ONNXService` for model operations
+- [x] Add ONNX model validation (load and verify)
+- [x] Extract input/output schema from ONNX model
+- [x] Extract model metadata (opset version, producer, etc.)
+- [x] Update MLModel status to READY or ERROR
+- [x] Unit tests with sample ONNX models
+- [x] Add `/models/{id}/validate` POST endpoint
+- [x] Integration tests for validation endpoint (69 total tests)
 
 #### PR 2.4: Synchronous Inference Endpoint
 - [ ] Add `/models/{id}/predict` POST endpoint
@@ -312,14 +314,14 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 
 ## Current Status
 - **Phase 1**: ✅ COMPLETE
-- **Phase 2**: 🚧 IN PROGRESS (PRs 2.0-2.2 complete)
-- **Next PR**: PR 2.3 (ONNX Validation Service)
-- **Last Updated**: 2025-12-15
-- **Test Count**: 42 tests passing
+- **Phase 2**: 🚧 IN PROGRESS (PRs 2.0-2.3 complete)
+- **Next PR**: PR 2.4 (Synchronous Inference Endpoint)
+- **Last Updated**: 2025-12-16
+- **Test Count**: 69 tests passing
 
 ## Session Notes
 - 2025-12-15: Merged Copilot onboarding PRs (#10, #6), closed duplicate (#9), removed blocking ruleset
 - 2025-12-15: Assessed project state - Phase 2 ONNX work not actually merged, need to start fresh
 - 2025-12-15: Broke down Phases 2-7 into 22 smaller PRs for easier review
 - 2025-12-15: Completed PR 2.0 (blocking issues), PR 2.1 (storage service), PR 2.2 (upload endpoint)
-- Next session: PR 2.3 - ONNX Validation Service (load models, extract schemas, validate)
+- 2025-12-16: Completed PR 2.3 - ONNX Validation Service (ONNXService, validation endpoint, 27 new tests)

@@ -7,11 +7,29 @@ from app.services.storage import (
     StorageFullError,
     get_storage_service,
 )
+from app.services.onnx import (
+    ONNXService,
+    ONNXError,
+    ONNXLoadError,
+    ONNXValidationError,
+    TensorSchema,
+    ValidationResult,
+    get_onnx_service,
+)
 
 __all__ = [
+    # Storage
     "StorageService",
     "LocalStorageService",
     "StorageError",
     "StorageFullError",
     "get_storage_service",
+    # ONNX
+    "ONNXService",
+    "ONNXError",
+    "ONNXLoadError",
+    "ONNXValidationError",
+    "TensorSchema",
+    "ValidationResult",
+    "get_onnx_service",
 ]

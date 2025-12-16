@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, Query, UploadFile, status
 
-from app.api.deps import DBSession, ModelDep, StorageDep
+from app.api.deps import DBSession, ModelDep, ONNXDep, StorageDep
 from app.config import settings
 from app.crud import model_crud
 from app.models.ml_model import ModelStatus
@@ -12,8 +12,11 @@ from app.schemas.ml_model import (
     ModelResponse,
     ModelUpdate,
     ModelUploadResponse,
+    ModelValidateResponse,
+    TensorSchemaResponse,
 )
 from app.services.storage import StorageError, StorageFullError
+from app.services.onnx import ONNXError
 
 router = APIRouter()
 
@@ -177,3 +180,94 @@ async def upload_model_file(
         file_hash=file_hash,
         status=updated.status,
     )
+
+
+@router.post("/{model_id}/validate", response_model=ModelValidateResponse)
+async def validate_model(
+    model: ModelDep,
+    db: DBSession,
+    storage: StorageDep,
+    onnx_service: ONNXDep,
+) -> ModelValidateResponse:
+    """Validate an uploaded ONNX model.
+
+    Loads the model with ONNX Runtime, validates its structure,
+    and extracts input/output schemas and metadata. Updates the
+    model status to READY on success or ERROR on failure.
+    """
+    # Check if model has an uploaded file
+    if not model.file_path:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Model does not have an uploaded file. Upload a file first.",
+        )
+
+    # Check model is in a state that can be validated
+    if model.status not in (ModelStatus.UPLOADED, ModelStatus.ERROR):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Model cannot be validated in '{model.status.value}' status. "
+            f"Only models in 'uploaded' or 'error' status can be validated.",
+        )
+
+    # Set status to VALIDATING
+    await model_crud.update_status(db, model_id=model.id, status=ModelStatus.VALIDATING)
+
+    # Get the file path from storage
+    try:
+        file_path = await storage.get_path(model.file_path)
+    except Exception as e:
+        await model_crud.update(
+            db,
+            db_obj=model,
+            obj_in={"status": ModelStatus.ERROR},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to access model file: {e}",
+        )
+
+    # Validate the ONNX model
+    result = onnx_service.validate(file_path)
+
+    if result.valid:
+        # Convert schemas to serializable format
+        input_schema = [s.to_dict() for s in result.input_schema]
+        output_schema = [s.to_dict() for s in result.output_schema]
+
+        # Update model with validation results
+        updated = await model_crud.update(
+            db,
+            db_obj=model,
+            obj_in={
+                "status": ModelStatus.READY,
+                "input_schema": input_schema,
+                "output_schema": output_schema,
+                "model_metadata": result.metadata,
+            },
+        )
+
+        return ModelValidateResponse(
+            id=updated.id,
+            valid=True,
+            status=updated.status,
+            input_schema=[TensorSchemaResponse(**s) for s in input_schema],
+            output_schema=[TensorSchemaResponse(**s) for s in output_schema],
+            model_metadata=result.metadata,
+            message="Model validated successfully",
+        )
+    else:
+        # Update model with error status
+        updated = await model_crud.update(
+            db,
+            db_obj=model,
+            obj_in={"status": ModelStatus.ERROR},
+        )
+
+        return ModelValidateResponse(
+            id=updated.id,
+            valid=False,
+            status=updated.status,
+            error_message=result.error_message,
+            message="Model validation failed",
+        )

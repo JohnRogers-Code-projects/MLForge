@@ -46,8 +46,8 @@ class ModelResponse(ModelBase):
     status: ModelStatus
     file_path: Optional[str] = None
     file_size_bytes: Optional[int] = None
-    input_schema: Optional[dict[str, Any]] = None
-    output_schema: Optional[dict[str, Any]] = None
+    input_schema: Optional[list[dict[str, Any]]] = None
+    output_schema: Optional[list[dict[str, Any]]] = None
     model_metadata: Optional[dict[str, Any]] = None
     created_at: datetime
     updated_at: datetime
@@ -74,5 +74,28 @@ class ModelUploadResponse(BaseModel):
     file_hash: str
     status: ModelStatus
     message: str = "File uploaded successfully"
+
+    model_config = {"protected_namespaces": ()}
+
+
+class TensorSchemaResponse(BaseModel):
+    """Schema for input/output tensor information."""
+
+    name: str
+    dtype: str
+    shape: list[Optional[int]]
+
+
+class ModelValidateResponse(BaseModel):
+    """Schema for model validation response."""
+
+    id: str
+    valid: bool
+    status: ModelStatus
+    input_schema: Optional[list[TensorSchemaResponse]] = None
+    output_schema: Optional[list[TensorSchemaResponse]] = None
+    model_metadata: Optional[dict[str, Any]] = None
+    error_message: Optional[str] = None
+    message: str = "Model validated successfully"
 
     model_config = {"protected_namespaces": ()}
