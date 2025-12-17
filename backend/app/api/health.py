@@ -9,23 +9,37 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.database import get_db
 from app.schemas.common import HealthResponse
+from app.services.cache import CacheService, get_cache_service
 
 router = APIRouter()
 
 
 @router.get("/health", response_model=HealthResponse)
-async def health_check(db: AsyncSession = Depends(get_db)) -> HealthResponse:
+async def health_check(
+    db: AsyncSession = Depends(get_db),
+    cache: CacheService = Depends(get_cache_service),
+) -> HealthResponse:
     """Check application health status."""
     db_status = "connected"
-    redis_status = "not_configured"  # Will be updated in Phase 3
 
     try:
         await db.execute(text("SELECT 1"))
     except Exception:
         db_status = "disconnected"
 
+    # Check Redis health
+    cache_health = await cache.health_check()
+    redis_status = cache_health.get("status", "unknown")
+
+    # Determine overall health
+    # healthy = db connected, degraded = db down or redis down
+    if db_status == "connected":
+        overall_status = "healthy"
+    else:
+        overall_status = "degraded"
+
     return HealthResponse(
-        status="healthy" if db_status == "connected" else "degraded",
+        status=overall_status,
         version=settings.app_version,
         environment=settings.environment,
         timestamp=datetime.utcnow(),
