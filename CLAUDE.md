@@ -152,11 +152,13 @@ backend/
 - [x] Graceful degradation when Redis unavailable
 - [x] Unit tests with Redis mocking (29 new tests, 142 total)
 
-#### PR 3.2: Model Metadata Caching
-- [ ] Cache model metadata on first load
-- [ ] Add TTL configuration
-- [ ] Invalidate cache on model update/delete
-- [ ] Add cache headers to API responses
+#### PR 3.2: Model Metadata Caching ✅ COMPLETE
+- [x] Cache model metadata on first load
+- [x] Add TTL configuration (cache_model_ttl, cache_model_list_ttl)
+- [x] Invalidate cache on model update/delete/upload/validate
+- [x] Add cache headers to API responses (X-Cache, Cache-Control)
+- [x] ModelCache helper class for cache operations
+- [x] 17 new tests (159 total tests)
 
 #### PR 3.3: Prediction Caching
 - [ ] Generate cache keys from model ID + input hash
@@ -315,10 +317,10 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 ## Current Status
 - **Phase 1**: ✅ COMPLETE
 - **Phase 2**: ✅ COMPLETE
-- **Phase 3**: 🚧 IN PROGRESS (PR 3.1 complete)
-- **Next PR**: PR 3.2 (Model Metadata Caching)
+- **Phase 3**: 🚧 IN PROGRESS (PRs 3.1-3.2 complete)
+- **Next PR**: PR 3.3 (Prediction Caching)
 - **Last Updated**: 2025-12-17
-- **Test Count**: 142 tests passing
+- **Test Count**: 159 tests passing
 
 ## Session Notes
 - 2025-12-15: Merged Copilot onboarding PRs (#10, #6), closed duplicate (#9), removed blocking ruleset
@@ -329,3 +331,4 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - 2025-12-16: Completed PR 2.4 - Synchronous Inference Endpoint (session caching, predict endpoint, 22 new tests)
 - 2025-12-16: Completed PR 2.5 - Model Versioning (unique constraint, semver comparison, version endpoints)
 - 2025-12-17: Completed PR 3.1 - Redis Connection Manager (CacheService, health checks, graceful degradation)
+- 2025-12-17: Completed PR 3.2 - Model Metadata Caching (ModelCache helper, cache invalidation, cache headers)

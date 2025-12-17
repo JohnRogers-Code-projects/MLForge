@@ -1,8 +1,8 @@
 """API routes for ML model management."""
 
-from fastapi import APIRouter, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, HTTPException, Query, Response, UploadFile, status
 
-from app.api.deps import DBSession, ModelDep, ONNXDep, StorageDep
+from app.api.deps import CacheDep, DBSession, ModelDep, ONNXDep, StorageDep
 from app.config import settings
 from app.crud import model_crud
 from app.models.ml_model import ModelStatus
@@ -19,6 +19,7 @@ from app.schemas.ml_model import (
 )
 from app.services.storage import StorageError, StorageFullError
 from app.services.onnx import ONNXError
+from app.services.model_cache import ModelCache, model_to_cache_dict
 
 router = APIRouter()
 
@@ -136,34 +137,118 @@ async def get_latest_model_version(
 
 
 @router.get("/{model_id}", response_model=ModelResponse)
-async def get_model(model: ModelDep) -> ModelResponse:
-    """Get a specific ML model by ID."""
+async def get_model(
+    model_id: str,
+    response: Response,
+    db: DBSession,
+    cache: CacheDep,
+) -> ModelResponse:
+    """Get a specific ML model by ID.
+
+    Results are cached for improved performance. Cache is automatically
+    invalidated when the model is updated or deleted.
+    """
+    model_cache = ModelCache(cache)
+
+    # Try cache first
+    cached = await model_cache.get_model(model_id)
+    if cached:
+        # Add cache headers indicating a cache hit
+        response.headers["X-Cache"] = "HIT"
+        response.headers["Cache-Control"] = f"max-age={settings.cache_model_ttl}"
+        return ModelResponse.model_validate(cached)
+
+    # Cache miss - fetch from database
+    model = await model_crud.get(db, model_id)
+    if not model:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Model with ID {model_id} not found",
+        )
+
+    # Cache the result
+    cache_data = model_to_cache_dict(model)
+    await model_cache.set_model(model_id, cache_data)
+
+    # Add cache headers indicating a cache miss
+    response.headers["X-Cache"] = "MISS"
+    response.headers["Cache-Control"] = f"max-age={settings.cache_model_ttl}"
+
     return ModelResponse.model_validate(model)
 
 
 @router.patch("/{model_id}", response_model=ModelResponse)
 async def update_model(
-    model: ModelDep,
+    model_id: str,
     model_in: ModelUpdate,
     db: DBSession,
+    cache: CacheDep,
 ) -> ModelResponse:
-    """Update an ML model."""
+    """Update an ML model.
+
+    Automatically invalidates the cache for this model.
+    """
+    # Get the model first
+    model = await model_crud.get(db, model_id)
+    if not model:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Model with ID {model_id} not found",
+        )
+
+    # Store old values before update for cache invalidation
+    old_name = model.name
+    old_version = model.version
+
+    # Update in database
     updated = await model_crud.update(db, db_obj=model, obj_in=model_in)
+
+    # Invalidate cache (using updated values, with old values if changed)
+    model_cache = ModelCache(cache)
+    await model_cache.invalidate_model(
+        model_id=updated.id,
+        name=updated.name,
+        version=updated.version,
+        old_name=old_name if old_name != updated.name else None,
+        old_version=old_version if old_version != updated.version else None,
+    )
+
     return ModelResponse.model_validate(updated)
 
 
 @router.delete("/{model_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_model(
-    model: ModelDep,
+    model_id: str,
     db: DBSession,
+    cache: CacheDep,
 ) -> None:
-    """Delete an ML model."""
-    deleted = await model_crud.delete(db, id=model.id)
+    """Delete an ML model.
+
+    Automatically invalidates the cache for this model.
+    """
+    # Get the model first to get name/version for cache invalidation
+    model = await model_crud.get(db, model_id)
+    if not model:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Model with ID {model_id} not found",
+        )
+
+    # Store name/version before deletion
+    model_name = model.name
+    model_version = model.version
+
+    # Delete from database
+    deleted = await model_crud.delete(db, id=model_id)
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Model with id {model.id} not found",
+            detail=f"Model with ID {model_id} not found",
         )
+
+    # Invalidate cache
+    model_cache = ModelCache(cache)
+    await model_cache.invalidate_model(model_id, model_name, model_version)
 
 
 @router.post("/{model_id}/upload", response_model=ModelUploadResponse)
@@ -172,11 +257,13 @@ async def upload_model_file(
     file: UploadFile,
     db: DBSession,
     storage: StorageDep,
+    cache: CacheDep,
 ) -> ModelUploadResponse:
     """Upload an ONNX model file.
 
     Validates the file extension and size, stores it via the storage service,
     and updates the model record with file metadata.
+    Automatically invalidates the cache for this model.
     """
     # Validate file extension
     allowed_extensions = {".onnx"}
@@ -241,6 +328,10 @@ async def upload_model_file(
             pass  # Optionally log this error
         raise db_exc
 
+    # Invalidate cache
+    model_cache = ModelCache(cache)
+    await model_cache.invalidate_model(model.id, model.name, model.version)
+
     return ModelUploadResponse(
         id=updated.id,
         file_path=file_path,
@@ -256,12 +347,14 @@ async def validate_model(
     db: DBSession,
     storage: StorageDep,
     onnx_service: ONNXDep,
+    cache: CacheDep,
 ) -> ModelValidateResponse:
     """Validate an uploaded ONNX model.
 
     Loads the model with ONNX Runtime, validates its structure,
     and extracts input/output schemas and metadata. Updates the
     model status to READY on success or ERROR on failure.
+    Automatically invalidates the cache for this model.
     """
     # Check if model has an uploaded file
     if not model.file_path:
@@ -315,6 +408,10 @@ async def validate_model(
             },
         )
 
+        # Invalidate cache
+        model_cache = ModelCache(cache)
+        await model_cache.invalidate_model(model.id, model.name, model.version)
+
         return ModelValidateResponse(
             id=updated.id,
             valid=True,
@@ -331,6 +428,10 @@ async def validate_model(
             db_obj=model,
             obj_in={"status": ModelStatus.ERROR},
         )
+
+        # Invalidate cache
+        model_cache = ModelCache(cache)
+        await model_cache.invalidate_model(model.id, model.name, model.version)
 
         return ModelValidateResponse(
             id=updated.id,

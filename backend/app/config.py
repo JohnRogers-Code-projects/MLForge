@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     cache_ttl: int = 3600  # Default TTL: 1 hour
     cache_key_prefix: str = "modelforge:"  # Namespace for all cache keys
 
+    # Model-specific cache settings
+    cache_model_ttl: int = 300  # Model metadata TTL: 5 minutes
+    cache_model_list_ttl: int = 60  # Model list TTL: 1 minute (shorter for fresher lists)
+
     # Security
     secret_key: str = "change-me-in-production"
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:8000"]
