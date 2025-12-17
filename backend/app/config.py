@@ -32,7 +32,16 @@ class Settings(BaseSettings):
 
     # Redis
     redis_url: str = "redis://localhost:6379/0"
-    cache_ttl: int = 3600  # 1 hour default
+    redis_max_connections: int = 10
+    redis_socket_timeout: float = 5.0  # seconds
+    redis_socket_connect_timeout: float = 5.0  # seconds
+    redis_retry_on_timeout: bool = True
+    redis_health_check_interval: int = 30  # seconds
+    redis_enabled: bool = True  # Set to False to disable Redis entirely
+
+    # Cache settings
+    cache_ttl: int = 3600  # Default TTL: 1 hour
+    cache_key_prefix: str = "modelforge:"  # Namespace for all cache keys
 
     # Security
     secret_key: str = "change-me-in-production"

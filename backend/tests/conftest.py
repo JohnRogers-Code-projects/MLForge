@@ -16,6 +16,7 @@ from app.database import Base, get_db
 from app.main import app
 from app.services.storage import LocalStorageService, get_storage_service
 from app.services.onnx import ONNXService, get_onnx_service, reset_onnx_service
+from app.services.cache import CacheService, get_cache_service
 
 
 # Use SQLite for testing
@@ -80,8 +81,14 @@ async def test_storage(tmp_path: Path) -> LocalStorageService:
 
 
 @pytest_asyncio.fixture(scope="function")
+async def test_cache() -> CacheService:
+    """Create test cache service (disabled for tests)."""
+    return CacheService(enabled=False)
+
+
+@pytest_asyncio.fixture(scope="function")
 async def client(
-    db_session: AsyncSession, test_storage: LocalStorageService
+    db_session: AsyncSession, test_storage: LocalStorageService, test_cache: CacheService
 ) -> AsyncGenerator[AsyncClient, None]:
     """Create test HTTP client with overridden dependencies."""
 
@@ -91,8 +98,12 @@ async def client(
     def override_get_storage():
         return test_storage
 
+    async def override_get_cache():
+        return test_cache
+
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_storage_service] = override_get_storage
+    app.dependency_overrides[get_cache_service] = override_get_cache
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:

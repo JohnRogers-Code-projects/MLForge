@@ -145,12 +145,12 @@ backend/
 
 ### Phase 3: Redis Caching Layer
 
-#### PR 3.1: Redis Connection Manager
-- [ ] Implement `CacheService` with Redis client
-- [ ] Add connection pooling and health checks
-- [ ] Add Redis configuration to `config.py`
-- [ ] Graceful degradation when Redis unavailable
-- [ ] Unit tests with Redis mocking
+#### PR 3.1: Redis Connection Manager ✅ COMPLETE
+- [x] Implement `CacheService` with Redis client
+- [x] Add connection pooling and health checks
+- [x] Add Redis configuration to `config.py`
+- [x] Graceful degradation when Redis unavailable
+- [x] Unit tests with Redis mocking (29 new tests, 142 total)
 
 #### PR 3.2: Model Metadata Caching
 - [ ] Cache model metadata on first load
@@ -314,10 +314,11 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 
 ## Current Status
 - **Phase 1**: ✅ COMPLETE
-- **Phase 2**: ✅ COMPLETE (PRs 2.0-2.5 all done)
-- **Next PR**: PR 3.1 (Redis Connection Manager)
-- **Last Updated**: 2025-12-16
-- **Test Count**: 113 tests passing
+- **Phase 2**: ✅ COMPLETE
+- **Phase 3**: 🚧 IN PROGRESS (PR 3.1 complete)
+- **Next PR**: PR 3.2 (Model Metadata Caching)
+- **Last Updated**: 2025-12-17
+- **Test Count**: 142 tests passing
 
 ## Session Notes
 - 2025-12-15: Merged Copilot onboarding PRs (#10, #6), closed duplicate (#9), removed blocking ruleset
@@ -327,3 +328,4 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - 2025-12-16: Completed PR 2.3 - ONNX Validation Service (ONNXService, validation endpoint, 27 new tests)
 - 2025-12-16: Completed PR 2.4 - Synchronous Inference Endpoint (session caching, predict endpoint, 22 new tests)
 - 2025-12-16: Completed PR 2.5 - Model Versioning (unique constraint, semver comparison, version endpoints)
+- 2025-12-17: Completed PR 3.1 - Redis Connection Manager (CacheService, health checks, graceful degradation)

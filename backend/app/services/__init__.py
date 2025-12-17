@@ -19,6 +19,13 @@ from app.services.onnx import (
     InferenceResult,
     get_onnx_service,
 )
+from app.services.cache import (
+    CacheService,
+    CacheError,
+    get_cache_service,
+    close_cache_service,
+    set_cache_service,
+)
 
 __all__ = [
     # Storage
@@ -38,4 +45,10 @@ __all__ = [
     "ValidationResult",
     "InferenceResult",
     "get_onnx_service",
+    # Cache
+    "CacheService",
+    "CacheError",
+    "get_cache_service",
+    "close_cache_service",
+    "set_cache_service",
 ]

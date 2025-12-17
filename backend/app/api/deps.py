@@ -10,6 +10,7 @@ from app.crud import model_crud
 from app.models.ml_model import MLModel
 from app.services.storage import StorageService, get_storage_service
 from app.services.onnx import ONNXService, get_onnx_service
+from app.services.cache import CacheService, get_cache_service
 
 # Database session dependency
 DBSession = Annotated[AsyncSession, Depends(get_db)]
@@ -19,6 +20,9 @@ StorageDep = Annotated[StorageService, Depends(get_storage_service)]
 
 # ONNX service dependency
 ONNXDep = Annotated[ONNXService, Depends(get_onnx_service)]
+
+# Cache service dependency
+CacheDep = Annotated[CacheService, Depends(get_cache_service)]
 
 
 async def get_model_or_404(
