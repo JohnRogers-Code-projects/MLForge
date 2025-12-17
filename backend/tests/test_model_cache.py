@@ -94,8 +94,36 @@ class TestModelCacheHelper:
 
         await model_cache.invalidate_model("abc-123", "my-model", "1.0.0")
 
-        # Should delete: by ID, by name/version, latest, versions list
+        # Should delete: by ID, by name/version, latest, versions list (in parallel)
         assert mock_cache.delete.call_count == 4
+
+    @pytest.mark.asyncio
+    async def test_invalidate_model_with_name_change(self, mock_cache):
+        """Test cache invalidation when model name changed."""
+        model_cache = ModelCache(mock_cache)
+
+        await model_cache.invalidate_model(
+            "abc-123", "new-model", "1.0.0",
+            old_name="old-model", old_version="1.0.0"
+        )
+
+        # Should delete: by ID, new name/version, new latest, new versions,
+        # old name/version, old latest, old versions = 7 keys
+        assert mock_cache.delete.call_count == 7
+
+    @pytest.mark.asyncio
+    async def test_invalidate_model_with_version_change(self, mock_cache):
+        """Test cache invalidation when model version changed."""
+        model_cache = ModelCache(mock_cache)
+
+        await model_cache.invalidate_model(
+            "abc-123", "my-model", "2.0.0",
+            old_version="1.0.0"
+        )
+
+        # Should delete: by ID, new name/version, latest, versions,
+        # old name/version = 5 keys
+        assert mock_cache.delete.call_count == 5
 
 
 class TestModelToCacheDict:
@@ -117,23 +145,59 @@ class TestModelToCacheDict:
         mock_model.output_schema = [{"name": "output", "shape": [1, 5]}]
         mock_model.model_metadata = {"version": "1.0"}
         mock_model.created_at.isoformat.return_value = "2025-01-01T00:00:00"
-        mock_model.updated_at.isoformat.return_value = "2025-01-01T00:00:00"
+        mock_model.updated_at.isoformat.return_value = "2025-01-02T00:00:00"
 
         result = model_to_cache_dict(mock_model)
 
+        # Verify all 13 fields are present and correct
         assert result["id"] == "abc-123"
         assert result["name"] == "test-model"
+        assert result["description"] == "A test model"
         assert result["version"] == "1.0.0"
         assert result["status"] == "ready"
         assert result["file_path"] == "abc-123.onnx"
+        assert result["file_size_bytes"] == 1024
+        assert result["file_hash"] == "abc123"
+        assert result["input_schema"] == [{"name": "input", "shape": [1, 10]}]
+        assert result["output_schema"] == [{"name": "output", "shape": [1, 5]}]
+        assert result["model_metadata"] == {"version": "1.0"}
+        assert result["created_at"] == "2025-01-01T00:00:00"
+        assert result["updated_at"] == "2025-01-02T00:00:00"
+
+    def test_handles_none_datetimes(self):
+        """Test that None datetime fields are handled defensively."""
+        mock_model = MagicMock()
+        mock_model.id = "abc-123"
+        mock_model.name = "test-model"
+        mock_model.description = None
+        mock_model.version = "1.0.0"
+        mock_model.status.value = "pending"
+        mock_model.file_path = None
+        mock_model.file_size_bytes = None
+        mock_model.file_hash = None
+        mock_model.input_schema = None
+        mock_model.output_schema = None
+        mock_model.model_metadata = None
+        mock_model.created_at = None
+        mock_model.updated_at = None
+
+        result = model_to_cache_dict(mock_model)
+
+        assert result["created_at"] is None
+        assert result["updated_at"] is None
 
 
 class TestModelCacheIntegration:
-    """Integration tests for model caching in API endpoints."""
+    """Integration tests for model caching in API endpoints.
+
+    Note: These tests run with cache disabled (enabled=False in conftest.py).
+    They verify API behavior and data consistency rather than actual cache
+    hit/miss behavior. Unit tests in TestModelCacheHelper verify cache logic.
+    """
 
     @pytest.mark.asyncio
-    async def test_get_model_cache_miss_then_hit(self, client: AsyncClient):
-        """Test that get_model caches on miss and returns from cache on hit."""
+    async def test_get_model_returns_consistent_data(self, client: AsyncClient):
+        """Test that get_model returns consistent data on repeated calls."""
         # Create a model
         create_response = await client.post(
             "/api/v1/models",
@@ -142,12 +206,11 @@ class TestModelCacheIntegration:
         assert create_response.status_code == 201
         model_id = create_response.json()["id"]
 
-        # First get - should be cache miss
+        # First get
         response1 = await client.get(f"/api/v1/models/{model_id}")
         assert response1.status_code == 200
-        # Note: X-Cache header may be MISS or not set if cache is disabled in tests
 
-        # Second get - in a real scenario with Redis, this would be a cache hit
+        # Second get
         response2 = await client.get(f"/api/v1/models/{model_id}")
         assert response2.status_code == 200
 
@@ -156,8 +219,8 @@ class TestModelCacheIntegration:
         assert response1.json()["name"] == response2.json()["name"]
 
     @pytest.mark.asyncio
-    async def test_update_model_invalidates_cache(self, client: AsyncClient):
-        """Test that updating a model works correctly (cache invalidation)."""
+    async def test_update_model_reflects_changes(self, client: AsyncClient):
+        """Test that updates are reflected in subsequent GET requests."""
         # Create a model
         create_response = await client.post(
             "/api/v1/models",
@@ -165,10 +228,10 @@ class TestModelCacheIntegration:
         )
         model_id = create_response.json()["id"]
 
-        # Get model (populates cache)
+        # Get model (would populate cache if enabled)
         await client.get(f"/api/v1/models/{model_id}")
 
-        # Update model (should invalidate cache)
+        # Update model (triggers cache invalidation)
         update_response = await client.patch(
             f"/api/v1/models/{model_id}",
             json={"description": "Updated description"},
@@ -182,8 +245,8 @@ class TestModelCacheIntegration:
         assert response.json()["description"] == "Updated description"
 
     @pytest.mark.asyncio
-    async def test_delete_model_invalidates_cache(self, client: AsyncClient):
-        """Test that deleting a model works correctly (cache invalidation)."""
+    async def test_delete_model_removes_data(self, client: AsyncClient):
+        """Test that deleted models return 404 on subsequent GET requests."""
         # Create a model
         create_response = await client.post(
             "/api/v1/models",
@@ -191,10 +254,10 @@ class TestModelCacheIntegration:
         )
         model_id = create_response.json()["id"]
 
-        # Get model (populates cache)
+        # Get model (would populate cache if enabled)
         await client.get(f"/api/v1/models/{model_id}")
 
-        # Delete model (should invalidate cache)
+        # Delete model (triggers cache invalidation)
         delete_response = await client.delete(f"/api/v1/models/{model_id}")
         assert delete_response.status_code == 204
 

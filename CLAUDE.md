@@ -158,7 +158,7 @@ backend/
 - [x] Invalidate cache on model update/delete/upload/validate
 - [x] Add cache headers to API responses (X-Cache, Cache-Control)
 - [x] ModelCache helper class for cache operations
-- [x] 14 new tests (156 total tests)
+- [x] 17 new tests (159 total tests)
 
 #### PR 3.3: Prediction Caching
 - [ ] Generate cache keys from model ID + input hash
@@ -320,7 +320,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - **Phase 3**: 🚧 IN PROGRESS (PRs 3.1-3.2 complete)
 - **Next PR**: PR 3.3 (Prediction Caching)
 - **Last Updated**: 2025-12-17
-- **Test Count**: 156 tests passing
+- **Test Count**: 159 tests passing
 
 ## Session Notes
 - 2025-12-15: Merged Copilot onboarding PRs (#10, #6), closed duplicate (#9), removed blocking ruleset

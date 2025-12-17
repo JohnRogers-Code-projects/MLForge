@@ -196,12 +196,22 @@ async def update_model(
             detail=f"Model with ID {model_id} not found",
         )
 
+    # Store old values before update for cache invalidation
+    old_name = model.name
+    old_version = model.version
+
     # Update in database
     updated = await model_crud.update(db, db_obj=model, obj_in=model_in)
 
-    # Invalidate cache
+    # Invalidate cache (using updated values, with old values if changed)
     model_cache = ModelCache(cache)
-    await model_cache.invalidate_model(model.id, model.name, model.version)
+    await model_cache.invalidate_model(
+        model_id=updated.id,
+        name=updated.name,
+        version=updated.version,
+        old_name=old_name if old_name != updated.name else None,
+        old_version=old_version if old_version != updated.version else None,
+    )
 
     return ModelResponse.model_validate(updated)
 

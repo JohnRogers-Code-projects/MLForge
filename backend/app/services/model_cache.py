@@ -11,6 +11,7 @@ Cache key patterns:
 - model:name:{name}:versions - List of all versions
 """
 
+import asyncio
 import logging
 from typing import Any, Optional
 
@@ -38,6 +39,7 @@ class ModelCache:
         """Initialize with a cache service instance."""
         self.cache = cache
         self.model_ttl = settings.cache_model_ttl
+        # list_ttl reserved for future use (PR 3.3 - caching version lists)
         self.list_ttl = settings.cache_model_list_ttl
 
     def _model_key(self, model_id: str) -> str:
@@ -116,27 +118,45 @@ class ModelCache:
             ttl=self.model_ttl,
         )
 
-    async def invalidate_model(self, model_id: str, name: str, version: str) -> None:
+    async def invalidate_model(
+        self,
+        model_id: str,
+        name: str,
+        version: str,
+        old_name: str | None = None,
+        old_version: str | None = None,
+    ) -> None:
         """Invalidate all cache entries for a model.
 
         Should be called when a model is updated or deleted.
 
         Args:
             model_id: Model UUID
-            name: Model name
-            version: Model version
+            name: Current model name
+            version: Current model version
+            old_name: Previous model name (if changed during update)
+            old_version: Previous model version (if changed during update)
         """
-        # Invalidate by ID
-        await self.cache.delete(self._model_key(model_id))
+        # Build list of keys to invalidate
+        keys_to_delete = [
+            self._model_key(model_id),
+            self._name_version_key(name, version),
+            self._latest_key(name),
+            self._versions_key(name),
+        ]
 
-        # Invalidate by name/version
-        await self.cache.delete(self._name_version_key(name, version))
+        # If name or version changed, also invalidate old keys
+        if old_name and old_name != name:
+            keys_to_delete.extend([
+                self._name_version_key(old_name, old_version or version),
+                self._latest_key(old_name),
+                self._versions_key(old_name),
+            ])
+        elif old_version and old_version != version:
+            keys_to_delete.append(self._name_version_key(name, old_version))
 
-        # Invalidate latest for this name (might have changed)
-        await self.cache.delete(self._latest_key(name))
-
-        # Invalidate versions list for this name
-        await self.cache.delete(self._versions_key(name))
+        # Delete all keys in parallel for better performance
+        await asyncio.gather(*[self.cache.delete(key) for key in keys_to_delete])
 
         logger.debug(f"Invalidated cache for model {model_id} ({name}:{version})")
 
@@ -167,6 +187,15 @@ def model_to_cache_dict(model: Any) -> dict[str, Any]:
     Returns:
         Dictionary representation suitable for JSON serialization and caching.
     """
+    # Handle potentially None datetime fields defensively
+    created_at = None
+    if model.created_at is not None:
+        created_at = model.created_at.isoformat()
+
+    updated_at = None
+    if model.updated_at is not None:
+        updated_at = model.updated_at.isoformat()
+
     return {
         "id": model.id,
         "name": model.name,
@@ -179,6 +208,6 @@ def model_to_cache_dict(model: Any) -> dict[str, Any]:
         "input_schema": model.input_schema,
         "output_schema": model.output_schema,
         "model_metadata": model.model_metadata,
-        "created_at": model.created_at.isoformat() if model.created_at else None,
-        "updated_at": model.updated_at.isoformat() if model.updated_at else None,
+        "created_at": created_at,
+        "updated_at": updated_at,
     }
