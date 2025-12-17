@@ -15,6 +15,18 @@ class HealthResponse(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     database: str = "connected"
     redis: str = "connected"
+    celery: str = "unknown"
+
+
+class CeleryHealthResponse(BaseModel):
+    """Celery worker health check response."""
+
+    status: str  # "connected", "disconnected", "error"
+    broker_connected: bool = False
+    workers: dict = Field(default_factory=dict)  # worker_name -> stats
+    queues: list[str] = Field(default_factory=list)
+    error: Optional[str] = None
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 
 class PaginationParams(BaseModel):
