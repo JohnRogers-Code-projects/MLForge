@@ -160,39 +160,56 @@ backend/
 - [x] ModelCache helper class for cache operations
 - [x] 17 new tests (159 total tests)
 
-#### PR 3.3: Prediction Caching
-- [ ] Generate cache keys from model ID + input hash
-- [ ] Cache prediction results with configurable TTL
-- [ ] Add cache hit/miss metrics endpoint
-- [ ] Bypass cache option in predict request
+#### PR 3.3: Prediction Caching ✅ COMPLETE
+- [x] Generate cache keys from model ID + input hash (MD5-based deterministic hashing)
+- [x] Cache prediction results with configurable TTL (cache_prediction_ttl setting)
+- [x] Add cache hit/miss metrics endpoint (/cache/metrics GET and POST reset)
+- [x] Bypass cache option in predict request (skip_cache parameter)
+- [x] Invalidate prediction cache on model upload/validate/delete
+- [x] X-Cache response header (HIT/MISS)
+- [x] 25 new tests (184 total tests)
 
 ---
 
 ### Phase 4: Async Job Queue
 
-#### PR 4.1: Celery Setup
-- [ ] Add Celery application configuration
-- [ ] Create worker entry point
-- [ ] Add Celery to Docker Compose
-- [ ] Health check for worker status
+**Existing scaffolding**: Job model/schemas, JobCRUD, and basic endpoints (`POST /jobs`, `GET /jobs`, `GET /jobs/{id}`, `POST /jobs/{id}/cancel`) already exist but are not wired to Celery. Jobs currently stay in PENDING forever.
 
-#### PR 4.2: Async Inference Jobs
-- [ ] Create `inference_task` Celery task
-- [ ] Add `/jobs` POST endpoint to submit async inference
-- [ ] Update Job model with task_id
-- [ ] Return job ID immediately
+#### PR 4.1: Celery Infrastructure Setup ✅ COMPLETE
+- [x] Create `backend/app/celery.py` - Celery app instance with proper configuration
+- [x] Add Celery settings to `config.py` (broker_url, result_backend, task serializer, time limits)
+- [x] Create `backend/app/worker.py` - Worker entry point
+- [x] Uncomment and configure worker service in docker-compose.yml
+- [x] Add `/health/celery` endpoint to check worker connectivity
+- [x] Add Flower service to docker-compose (task monitoring UI)
+- [x] Unit tests for Celery configuration (23 new tests, 207 total)
 
-#### PR 4.3: Job Status & Results
-- [ ] Add `/jobs/{id}` GET endpoint for status
-- [ ] Add `/jobs/{id}/result` GET endpoint
-- [ ] Implement job polling with status transitions
-- [ ] Store results in database
+#### PR 4.2: Async Inference Task
+- [ ] Create `backend/app/tasks/__init__.py`
+- [ ] Create `backend/app/tasks/inference.py` with `run_inference_task`
+- [ ] Task implementation: load model → run inference → store result
+- [ ] Update `POST /jobs` endpoint to queue task after creating job record
+- [ ] Implement status transitions: PENDING → QUEUED → RUNNING → COMPLETED/FAILED
+- [ ] Store `celery_task_id` and `worker_id` on job record
+- [ ] Track `queue_time_ms` and `inference_time_ms`
+- [ ] Integration tests with Celery eager mode (~15-20 tests)
 
-#### PR 4.4: Job Management
-- [ ] Add `/jobs/{id}/cancel` POST endpoint
-- [ ] Implement retry logic with exponential backoff
-- [ ] Add job timeout handling
-- [ ] Job cleanup/archival for old jobs
+#### PR 4.3: Job Results Endpoint
+- [ ] Add `GET /jobs/{id}/result` endpoint
+- [ ] Return result directly if job completed
+- [ ] Return 404 if job not found, 202 if still processing
+- [ ] Add optional `wait` query param with timeout (poll until complete)
+- [ ] Store `error_traceback` for failed jobs
+- [ ] Tests for result retrieval and waiting behavior (~10 tests)
+
+#### PR 4.4: Job Management & Cleanup
+- [ ] Update `POST /jobs/{id}/cancel` to revoke Celery task
+- [ ] Configure retry with exponential backoff (on transient failures)
+- [ ] Add `task_soft_time_limit` and `task_time_limit` configuration
+- [ ] Create periodic cleanup task for old completed/failed jobs
+- [ ] Add `job_retention_days` setting (configurable retention period)
+- [ ] Add `DELETE /jobs/{id}` endpoint for manual deletion
+- [ ] Tests for cancellation, retries, and cleanup (~12 tests)
 
 ---
 
@@ -317,10 +334,10 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 ## Current Status
 - **Phase 1**: ✅ COMPLETE
 - **Phase 2**: ✅ COMPLETE
-- **Phase 3**: 🚧 IN PROGRESS (PRs 3.1-3.2 complete)
-- **Next PR**: PR 3.3 (Prediction Caching)
+- **Phase 3**: ✅ COMPLETE
+- **Next Phase**: Phase 4 (Async Job Queue)
 - **Last Updated**: 2025-12-17
-- **Test Count**: 159 tests passing
+- **Test Count**: 207 tests passing
 
 ## Session Notes
 - 2025-12-15: Merged Copilot onboarding PRs (#10, #6), closed duplicate (#9), removed blocking ruleset
@@ -332,3 +349,5 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - 2025-12-16: Completed PR 2.5 - Model Versioning (unique constraint, semver comparison, version endpoints)
 - 2025-12-17: Completed PR 3.1 - Redis Connection Manager (CacheService, health checks, graceful degradation)
 - 2025-12-17: Completed PR 3.2 - Model Metadata Caching (ModelCache helper, cache invalidation, cache headers)
+- 2025-12-17: Completed PR 3.3 - Prediction Caching (PredictionCache, input hashing, metrics endpoint, cache invalidation)
+- 2025-12-17: Starting Phase 4 - Refined PR breakdown; Job model/CRUD/endpoints already scaffolded, need Celery wiring

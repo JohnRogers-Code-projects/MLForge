@@ -1,6 +1,6 @@
 """Health check endpoints."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import text
@@ -8,10 +8,65 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_db
-from app.schemas.common import HealthResponse
+from app.schemas.common import CeleryHealthResponse, HealthResponse
 from app.services.cache import CacheService, get_cache_service
 
 router = APIRouter()
+
+
+def check_celery_health() -> dict:
+    """Check Celery broker and worker health.
+
+    Returns dict with status and details. This is synchronous because
+    Celery's inspect API is synchronous.
+    """
+    try:
+        from app.celery import celery_app
+
+        # Check broker connection by pinging workers
+        # timeout=1.0 keeps health checks fast
+        inspect = celery_app.control.inspect(timeout=1.0)
+
+        # Get active workers
+        ping_response = inspect.ping()
+
+        if ping_response is None:
+            # No workers responded - broker might be up but no workers
+            return {
+                "status": "no_workers",
+                "broker_connected": True,  # We connected to broker successfully
+                "workers": {},
+                "queues": ["inference", "default"],
+            }
+
+        # Workers responded
+        workers = {}
+        for worker_name, response in ping_response.items():
+            if response.get("ok") == "pong":
+                # Get worker stats
+                stats = inspect.stats()
+                worker_stats = stats.get(worker_name, {}) if stats else {}
+                workers[worker_name] = {
+                    "status": "online",
+                    "concurrency": worker_stats.get("pool", {}).get("max-concurrency"),
+                    "processed": worker_stats.get("total", {}),
+                }
+
+        return {
+            "status": "connected",
+            "broker_connected": True,
+            "workers": workers,
+            "queues": ["inference", "default"],
+        }
+
+    except Exception as e:
+        return {
+            "status": "error",
+            "broker_connected": False,
+            "workers": {},
+            "queues": [],
+            "error": str(e),
+        }
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -31,8 +86,12 @@ async def health_check(
     cache_health = await cache.health_check()
     redis_status = cache_health.get("status", "unknown")
 
+    # Check Celery health (quick check)
+    celery_health = check_celery_health()
+    celery_status = celery_health.get("status", "unknown")
+
     # Determine overall health
-    # healthy = db connected, degraded = db down or redis down
+    # healthy = db connected, degraded = db down or redis down or celery down
     if db_status == "connected":
         overall_status = "healthy"
     else:
@@ -42,9 +101,30 @@ async def health_check(
         status=overall_status,
         version=settings.app_version,
         environment=settings.environment,
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(timezone.utc),
         database=db_status,
         redis=redis_status,
+        celery=celery_status,
+    )
+
+
+@router.get("/health/celery", response_model=CeleryHealthResponse)
+async def celery_health_check() -> CeleryHealthResponse:
+    """Detailed Celery worker health check.
+
+    Returns information about:
+    - Broker connectivity
+    - Active workers and their status
+    - Configured queues
+    """
+    health = check_celery_health()
+    return CeleryHealthResponse(
+        status=health.get("status", "unknown"),
+        broker_connected=health.get("broker_connected", False),
+        workers=health.get("workers", {}),
+        queues=health.get("queues", []),
+        error=health.get("error"),
+        timestamp=datetime.now(timezone.utc),
     )
 
 

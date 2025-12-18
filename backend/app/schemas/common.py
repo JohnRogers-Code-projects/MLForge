@@ -1,9 +1,14 @@
 """Common schemas used across the API."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Generic, Optional, TypeVar
 
 from pydantic import BaseModel, Field
+
+
+def _utc_now() -> datetime:
+    """Return current UTC time as timezone-aware datetime."""
+    return datetime.now(timezone.utc)
 
 
 class HealthResponse(BaseModel):
@@ -12,9 +17,21 @@ class HealthResponse(BaseModel):
     status: str = "healthy"
     version: str
     environment: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=_utc_now)
     database: str = "connected"
     redis: str = "connected"
+    celery: str = "unknown"
+
+
+class CeleryHealthResponse(BaseModel):
+    """Celery worker health check response."""
+
+    status: str  # "connected", "no_workers", "error"
+    broker_connected: bool = False
+    workers: dict = Field(default_factory=dict)  # worker_name -> stats
+    queues: list[str] = Field(default_factory=list)
+    error: Optional[str] = None
+    timestamp: datetime = Field(default_factory=_utc_now)
 
 
 class PaginationParams(BaseModel):
@@ -63,4 +80,4 @@ class ErrorResponse(BaseModel):
 
     detail: str
     error_code: Optional[str] = None
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=_utc_now)
