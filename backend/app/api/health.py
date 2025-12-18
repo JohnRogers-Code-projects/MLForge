@@ -1,6 +1,6 @@
 """Health check endpoints."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import text
@@ -101,7 +101,7 @@ async def health_check(
         status=overall_status,
         version=settings.app_version,
         environment=settings.environment,
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(timezone.utc),
         database=db_status,
         redis=redis_status,
         celery=celery_status,
@@ -124,7 +124,7 @@ async def celery_health_check() -> CeleryHealthResponse:
         workers=health.get("workers", {}),
         queues=health.get("queues", []),
         error=health.get("error"),
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(timezone.utc),
     )
 
 
