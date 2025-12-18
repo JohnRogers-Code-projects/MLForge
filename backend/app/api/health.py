@@ -31,21 +31,20 @@ def check_celery_health() -> dict:
         ping_response = inspect.ping()
 
         if ping_response is None:
-            # No workers responded - broker might be up but no workers
+            # No workers responded - broker connection succeeded but no workers available
             return {
                 "status": "no_workers",
-                "broker_connected": True,  # We connected to broker successfully
+                "broker_connected": True,
                 "workers": {},
                 "queues": ["inference", "default"],
             }
 
-        # Workers responded
+        # Workers responded - fetch stats once for all workers
         workers = {}
+        all_stats = inspect.stats() or {}
         for worker_name, response in ping_response.items():
             if response.get("ok") == "pong":
-                # Get worker stats
-                stats = inspect.stats()
-                worker_stats = stats.get(worker_name, {}) if stats else {}
+                worker_stats = all_stats.get(worker_name, {})
                 workers[worker_name] = {
                     "status": "online",
                     "concurrency": worker_stats.get("pool", {}).get("max-concurrency"),

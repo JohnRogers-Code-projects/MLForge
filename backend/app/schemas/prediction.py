@@ -11,6 +11,11 @@ class PredictionCreate(BaseModel):
 
     input_data: dict[str, Any] = Field(..., description="Input data for inference")
     request_id: Optional[str] = Field(None, description="Optional request tracking ID")
+    skip_cache: bool = Field(
+        False,
+        description="Skip cache lookup and force fresh inference. "
+        "Result will still be cached for future requests.",
+    )
 
 
 class PredictionResponse(BaseModel):

@@ -20,6 +20,7 @@ from app.schemas.ml_model import (
 from app.services.storage import StorageError, StorageFullError
 from app.services.onnx import ONNXError
 from app.services.model_cache import ModelCache, model_to_cache_dict
+from app.services.prediction_cache import PredictionCache
 
 router = APIRouter()
 
@@ -246,9 +247,11 @@ async def delete_model(
             detail=f"Model with ID {model_id} not found",
         )
 
-    # Invalidate cache
+    # Invalidate caches
     model_cache = ModelCache(cache)
     await model_cache.invalidate_model(model_id, model_name, model_version)
+    prediction_cache = PredictionCache(cache)
+    await prediction_cache.invalidate_model_predictions(model_id)
 
 
 @router.post("/{model_id}/upload", response_model=ModelUploadResponse)
@@ -328,9 +331,11 @@ async def upload_model_file(
             pass  # Optionally log this error
         raise db_exc
 
-    # Invalidate cache
+    # Invalidate caches
     model_cache = ModelCache(cache)
     await model_cache.invalidate_model(model.id, model.name, model.version)
+    prediction_cache = PredictionCache(cache)
+    await prediction_cache.invalidate_model_predictions(model.id)
 
     return ModelUploadResponse(
         id=updated.id,
@@ -408,9 +413,11 @@ async def validate_model(
             },
         )
 
-        # Invalidate cache
+        # Invalidate caches
         model_cache = ModelCache(cache)
         await model_cache.invalidate_model(model.id, model.name, model.version)
+        prediction_cache = PredictionCache(cache)
+        await prediction_cache.invalidate_model_predictions(model.id)
 
         return ModelValidateResponse(
             id=updated.id,
@@ -429,9 +436,11 @@ async def validate_model(
             obj_in={"status": ModelStatus.ERROR},
         )
 
-        # Invalidate cache
+        # Invalidate caches
         model_cache = ModelCache(cache)
         await model_cache.invalidate_model(model.id, model.name, model.version)
+        prediction_cache = PredictionCache(cache)
+        await prediction_cache.invalidate_model_predictions(model.id)
 
         return ModelValidateResponse(
             id=updated.id,
