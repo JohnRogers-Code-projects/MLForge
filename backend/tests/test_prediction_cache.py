@@ -11,7 +11,7 @@ Tests cover:
 
 import io
 import pytest
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 from httpx import AsyncClient
 import onnx
 
@@ -241,7 +241,7 @@ class TestPredictionCacheWithMockedRedis:
         mock_redis.scan_iter = mock_scan_iter
 
         pred_cache = PredictionCache(mock_cache_service)
-        count = await pred_cache.invalidate_model_predictions("model-123")
+        await pred_cache.invalidate_model_predictions("model-123")
 
         # Should have deleted the matching keys
         mock_redis.delete.assert_called()

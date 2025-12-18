@@ -31,10 +31,10 @@ def check_celery_health() -> dict:
         ping_response = inspect.ping()
 
         if ping_response is None:
-            # No workers responded - broker might be up but no workers
+            # No workers responded - broker connection succeeded but no workers available
             return {
                 "status": "no_workers",
-                "broker_connected": True,  # We connected to broker successfully
+                "broker_connected": True,
                 "workers": {},
                 "queues": ["inference", "default"],
             }

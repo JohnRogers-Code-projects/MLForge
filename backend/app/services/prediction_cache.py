@@ -175,23 +175,13 @@ class PredictionCache:
 
     async def _increment_hits(self) -> None:
         """Increment the cache hits counter."""
-        if self.cache._connected and self.cache._client:
-            try:
-                await self.cache._client.incr(
-                    self.cache._make_key(PREDICTION_METRICS_HITS)
-                )
-            except Exception:
-                pass  # Metrics are best-effort
+        # Use public incr method - returns None on error/disconnected
+        await self.cache.incr(PREDICTION_METRICS_HITS)
 
     async def _increment_misses(self) -> None:
         """Increment the cache misses counter."""
-        if self.cache._connected and self.cache._client:
-            try:
-                await self.cache._client.incr(
-                    self.cache._make_key(PREDICTION_METRICS_MISSES)
-                )
-            except Exception:
-                pass  # Metrics are best-effort
+        # Use public incr method - returns None on error/disconnected
+        await self.cache.incr(PREDICTION_METRICS_MISSES)
 
     async def get_metrics(self) -> dict[str, Any]:
         """Get prediction cache metrics.
@@ -202,18 +192,11 @@ class PredictionCache:
         hits = 0
         misses = 0
 
-        if self.cache._connected and self.cache._client:
-            try:
-                hits_val = await self.cache._client.get(
-                    self.cache._make_key(PREDICTION_METRICS_HITS)
-                )
-                misses_val = await self.cache._client.get(
-                    self.cache._make_key(PREDICTION_METRICS_MISSES)
-                )
-                hits = int(hits_val) if hits_val else 0
-                misses = int(misses_val) if misses_val else 0
-            except Exception:
-                pass  # Return zeros on error
+        if self.cache.is_connected:
+            hits_val = await self.cache.get_raw(PREDICTION_METRICS_HITS)
+            misses_val = await self.cache.get_raw(PREDICTION_METRICS_MISSES)
+            hits = int(hits_val) if hits_val else 0
+            misses = int(misses_val) if misses_val else 0
 
         total = hits + misses
         hit_rate = (hits / total * 100) if total > 0 else 0.0
@@ -233,14 +216,11 @@ class PredictionCache:
         Returns:
             True if successful, False otherwise.
         """
-        if not self.cache._connected or not self.cache._client:
+        if not self.cache.is_connected:
             return False
 
-        try:
-            await self.cache._client.delete(
-                self.cache._make_key(PREDICTION_METRICS_HITS),
-                self.cache._make_key(PREDICTION_METRICS_MISSES),
-            )
-            return True
-        except Exception:
-            return False
+        deleted = await self.cache.delete_keys(
+            PREDICTION_METRICS_HITS,
+            PREDICTION_METRICS_MISSES,
+        )
+        return deleted > 0

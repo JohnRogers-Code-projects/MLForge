@@ -153,7 +153,16 @@ class CacheService:
                 "error": str(e),
             }
 
-    def _make_key(self, key: str) -> str:
+    @property
+    def is_connected(self) -> bool:
+        """Check if Redis is connected.
+
+        Returns:
+            True if connected, False otherwise.
+        """
+        return self._connected and self._client is not None
+
+    def make_key(self, key: str) -> str:
         """Create a namespaced cache key.
 
         Args:
@@ -163,6 +172,10 @@ class CacheService:
             Prefixed cache key
         """
         return f"{self.prefix}{key}"
+
+    def _make_key(self, key: str) -> str:
+        """Alias for make_key (deprecated, use make_key instead)."""
+        return self.make_key(key)
 
     async def get(self, key: str) -> Optional[Any]:
         """Get a value from cache.
@@ -296,6 +309,65 @@ class CacheService:
 
         except RedisError as e:
             logger.warning(f"Cache clear_prefix failed for '{prefix}': {e}")
+            return 0
+
+    async def incr(self, key: str) -> Optional[int]:
+        """Increment a counter in cache.
+
+        Creates the key with value 1 if it doesn't exist.
+
+        Args:
+            key: Cache key
+
+        Returns:
+            New value after increment, or None on error.
+        """
+        if not self._connected or not self._client:
+            return None
+
+        try:
+            return await self._client.incr(self.make_key(key))
+        except RedisError as e:
+            logger.warning(f"Cache incr failed for key '{key}': {e}")
+            return None
+
+    async def get_raw(self, key: str) -> Optional[str]:
+        """Get a raw string value from cache without JSON deserialization.
+
+        Useful for counters and other non-JSON values.
+
+        Args:
+            key: Cache key
+
+        Returns:
+            Raw string value or None if not found/error.
+        """
+        if not self._connected or not self._client:
+            return None
+
+        try:
+            return await self._client.get(self.make_key(key))
+        except RedisError as e:
+            logger.warning(f"Cache get_raw failed for key '{key}': {e}")
+            return None
+
+    async def delete_keys(self, *keys: str) -> int:
+        """Delete multiple keys from cache.
+
+        Args:
+            *keys: Cache keys to delete
+
+        Returns:
+            Number of keys deleted, or 0 on error.
+        """
+        if not self._connected or not self._client or not keys:
+            return 0
+
+        try:
+            full_keys = [self.make_key(k) for k in keys]
+            return await self._client.delete(*full_keys)
+        except RedisError as e:
+            logger.warning(f"Cache delete_keys failed: {e}")
             return 0
 
     async def get_or_set(
