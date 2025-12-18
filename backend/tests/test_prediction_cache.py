@@ -96,32 +96,24 @@ class TestPredictionCacheDisabled:
         return CacheService(enabled=False)
 
     @pytest.mark.asyncio
-    async def test_get_prediction_disabled(self, disabled_cache):
+    async def test_get_prediction_disabled(self, disabled_cache, monkeypatch):
         """Get returns miss when cache is disabled."""
         from app.config import settings
-        original = settings.cache_prediction_enabled
-        settings.cache_prediction_enabled = False
-        try:
-            pred_cache = PredictionCache(disabled_cache)
-            result = await pred_cache.get_prediction("model-id", {"input": [[1.0]]})
-            assert result.hit is False
-        finally:
-            settings.cache_prediction_enabled = original
+        monkeypatch.setattr(settings, "cache_prediction_enabled", False)
+        pred_cache = PredictionCache(disabled_cache)
+        result = await pred_cache.get_prediction("model-id", {"input": [[1.0]]})
+        assert result.hit is False
 
     @pytest.mark.asyncio
-    async def test_set_prediction_disabled(self, disabled_cache):
+    async def test_set_prediction_disabled(self, disabled_cache, monkeypatch):
         """Set returns False when cache is disabled."""
         from app.config import settings
-        original = settings.cache_prediction_enabled
-        settings.cache_prediction_enabled = False
-        try:
-            pred_cache = PredictionCache(disabled_cache)
-            result = await pred_cache.set_prediction(
-                "model-id", {"input": [[1.0]]}, {"output": [[2.0]]}, 5.0
-            )
-            assert result is False
-        finally:
-            settings.cache_prediction_enabled = original
+        monkeypatch.setattr(settings, "cache_prediction_enabled", False)
+        pred_cache = PredictionCache(disabled_cache)
+        result = await pred_cache.set_prediction(
+            "model-id", {"input": [[1.0]]}, {"output": [[2.0]]}, 5.0
+        )
+        assert result is False
 
 
 class TestPredictionCacheWithMockedRedis:

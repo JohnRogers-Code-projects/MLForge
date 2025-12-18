@@ -190,7 +190,7 @@ class CacheService:
             return None
 
         try:
-            value = await self._client.get(self._make_key(key))
+            value = await self._client.get(self.make_key(key))
             if value is None:
                 return None
 
@@ -233,7 +233,7 @@ class CacheService:
                 serialized = json.dumps(value)
 
             await self._client.set(
-                self._make_key(key),
+                self.make_key(key),
                 serialized,
                 ex=ttl,
             )
@@ -256,7 +256,7 @@ class CacheService:
             return False
 
         try:
-            result = await self._client.delete(self._make_key(key))
+            result = await self._client.delete(self.make_key(key))
             return result > 0
 
         except RedisError as e:
@@ -276,7 +276,7 @@ class CacheService:
             return False
 
         try:
-            result = await self._client.exists(self._make_key(key))
+            result = await self._client.exists(self.make_key(key))
             return result > 0
 
         except RedisError as e:
@@ -298,7 +298,7 @@ class CacheService:
             return 0
 
         try:
-            pattern = f"{self._make_key(prefix)}*"
+            pattern = f"{self.make_key(prefix)}*"
             keys = []
             async for key in self._client.scan_iter(match=pattern, count=100):
                 keys.append(key)

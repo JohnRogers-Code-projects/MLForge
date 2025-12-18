@@ -39,13 +39,12 @@ def check_celery_health() -> dict:
                 "queues": ["inference", "default"],
             }
 
-        # Workers responded
+        # Workers responded - fetch stats once for all workers
         workers = {}
+        all_stats = inspect.stats() or {}
         for worker_name, response in ping_response.items():
             if response.get("ok") == "pong":
-                # Get worker stats
-                stats = inspect.stats()
-                worker_stats = stats.get(worker_name, {}) if stats else {}
+                worker_stats = all_stats.get(worker_name, {})
                 workers[worker_name] = {
                     "status": "online",
                     "concurrency": worker_stats.get("pool", {}).get("max-concurrency"),
