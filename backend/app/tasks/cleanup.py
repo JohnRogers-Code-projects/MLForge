@@ -83,7 +83,8 @@ def cleanup_old_jobs() -> dict:
 
 
 # Configure the periodic task schedule
-# This runs daily at midnight UTC
+# This runs every 24 hours from when Celery beat starts
+# TODO: Consider adding index on (status, completed_at) for large datasets
 celery_app.conf.beat_schedule = celery_app.conf.beat_schedule or {}
 celery_app.conf.beat_schedule["cleanup-old-jobs-daily"] = {
     "task": "app.tasks.cleanup.cleanup_old_jobs",

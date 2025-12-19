@@ -1,9 +1,6 @@
 """Tests for job cleanup task."""
 
-from datetime import datetime, timedelta, timezone
 from unittest.mock import patch, MagicMock
-
-import pytest
 
 from app.models.job import JobStatus
 from app.tasks.cleanup import cleanup_old_jobs, _CLEANUP_STATUSES
