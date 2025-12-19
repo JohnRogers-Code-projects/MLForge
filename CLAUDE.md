@@ -184,15 +184,15 @@ backend/
 - [x] Add Flower service to docker-compose (task monitoring UI)
 - [x] Unit tests for Celery configuration (23 new tests, 207 total)
 
-#### PR 4.2: Async Inference Task
-- [ ] Create `backend/app/tasks/__init__.py`
-- [ ] Create `backend/app/tasks/inference.py` with `run_inference_task`
-- [ ] Task implementation: load model → run inference → store result
-- [ ] Update `POST /jobs` endpoint to queue task after creating job record
-- [ ] Implement status transitions: PENDING → QUEUED → RUNNING → COMPLETED/FAILED
-- [ ] Store `celery_task_id` and `worker_id` on job record
-- [ ] Track `queue_time_ms` and `inference_time_ms`
-- [ ] Integration tests with Celery eager mode (~15-20 tests)
+#### PR 4.2: Async Inference Task ✅ COMPLETE
+- [x] Create `backend/app/tasks/__init__.py`
+- [x] Create `backend/app/tasks/inference.py` with `run_inference_task`
+- [x] Task implementation: load model → run inference → store result
+- [x] Update `POST /jobs` endpoint to queue task after creating job record
+- [x] Implement status transitions: PENDING → QUEUED → RUNNING → COMPLETED/FAILED
+- [x] Store `celery_task_id` and `worker_id` on job record
+- [x] Track `queue_time_ms` and `inference_time_ms`
+- [x] Integration tests with Celery eager mode (27 new tests, 228 total)
 
 #### PR 4.3: Job Results Endpoint
 - [ ] Add `GET /jobs/{id}/result` endpoint
@@ -336,8 +336,8 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - **Phase 2**: ✅ COMPLETE
 - **Phase 3**: ✅ COMPLETE
 - **Next Phase**: Phase 4 (Async Job Queue)
-- **Last Updated**: 2025-12-17
-- **Test Count**: 207 tests passing
+- **Last Updated**: 2025-12-18
+- **Test Count**: 228 tests passing
 
 ## Session Notes
 - 2025-12-15: Merged Copilot onboarding PRs (#10, #6), closed duplicate (#9), removed blocking ruleset
@@ -351,3 +351,5 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - 2025-12-17: Completed PR 3.2 - Model Metadata Caching (ModelCache helper, cache invalidation, cache headers)
 - 2025-12-17: Completed PR 3.3 - Prediction Caching (PredictionCache, input hashing, metrics endpoint, cache invalidation)
 - 2025-12-17: Starting Phase 4 - Refined PR breakdown; Job model/CRUD/endpoints already scaffolded, need Celery wiring
+- 2025-12-17: Completed PR 4.1 - Celery Infrastructure Setup (celery app, worker, flower, health checks)
+- 2025-12-18: Completed PR 4.2 - Async Inference Task (run_inference_task, status transitions, timing metrics)

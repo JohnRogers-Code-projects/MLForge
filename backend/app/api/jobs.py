@@ -1,11 +1,17 @@
 """API routes for async job management."""
 
+import logging
+
 from fastapi import APIRouter, HTTPException, Query, status
 
 from app.api.deps import DBSession
 from app.crud import job_crud, model_crud
 from app.models.job import JobStatus
+from app.models.ml_model import ModelStatus
 from app.schemas.job import JobCreate, JobListResponse, JobResponse
+from app.tasks.inference import run_inference_task
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -22,9 +28,10 @@ async def create_job(
     """
     Create a new async inference job.
 
-    Note: Celery integration will be implemented in Phase 4.
-    This endpoint currently creates the job in PENDING status.
+    Creates a job record and queues it for async processing via Celery.
+    The job will transition through states: PENDING -> QUEUED -> RUNNING -> COMPLETED/FAILED
     """
+    # Validate model exists and is ready
     model = await model_crud.get(db, job_in.model_id)
     if not model:
         raise HTTPException(
@@ -32,7 +39,37 @@ async def create_job(
             detail=f"Model with ID {job_in.model_id} not found",
         )
 
+    if model.status != ModelStatus.READY:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Model {job_in.model_id} is not ready for inference "
+                f"(current status: {model.status}). "
+                "Please ensure the model file is uploaded and validated successfully."
+            ),
+        )
+
+    # Create job in PENDING state
     job = await job_crud.create(db, obj_in=job_in)
+
+    # Queue the Celery task
+    try:
+        task_result = run_inference_task.delay(job.id)
+        logger.info(f"Queued inference task {task_result.id} for job {job.id}")
+
+        # Update job with task ID and status
+        job.celery_task_id = task_result.id
+        job.status = JobStatus.QUEUED
+        await db.flush()
+        await db.refresh(job)
+    except Exception as e:
+        # If queuing fails, leave job in PENDING state
+        # (could be picked up by a retry mechanism later)
+        logger.warning(
+            f"Failed to queue task for job {job.id}: {e}",
+            exc_info=True,
+        )
+
     return JobResponse.model_validate(job)
 
 
