@@ -183,7 +183,6 @@ async def get_job_result(
             elapsed += _POLL_INTERVAL_SECONDS
 
             # Refresh from database to get latest status
-            # Expire the current object to force a fresh query
             await db.refresh(job)
 
             if job.status in _TERMINAL_STATUSES:
