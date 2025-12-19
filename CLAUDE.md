@@ -194,13 +194,14 @@ backend/
 - [x] Track `queue_time_ms` and `inference_time_ms`
 - [x] Integration tests with Celery eager mode (27 new tests, 228 total)
 
-#### PR 4.3: Job Results Endpoint
-- [ ] Add `GET /jobs/{id}/result` endpoint
-- [ ] Return result directly if job completed
-- [ ] Return 404 if job not found, 202 if still processing
-- [ ] Add optional `wait` query param with timeout (poll until complete)
-- [ ] Store `error_traceback` for failed jobs
-- [ ] Tests for result retrieval and waiting behavior (~10 tests)
+#### PR 4.3: Job Results Endpoint ✅ COMPLETE
+- [x] Add `GET /jobs/{id}/result` endpoint
+- [x] Return result directly if job completed (200 with JobResultResponse)
+- [x] Return 404 if job not found, 202 if still processing
+- [x] Add optional `wait` query param with timeout (poll until complete, max 30s)
+- [x] Expose `error_traceback` in JobResponse schema for failed jobs
+- [x] Add JobResultResponse schema for result endpoint
+- [x] Tests for result retrieval and waiting behavior (11 new tests, 239 total)
 
 #### PR 4.4: Job Management & Cleanup
 - [ ] Update `POST /jobs/{id}/cancel` to revoke Celery task
@@ -335,9 +336,10 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - **Phase 1**: ✅ COMPLETE
 - **Phase 2**: ✅ COMPLETE
 - **Phase 3**: ✅ COMPLETE
-- **Next Phase**: Phase 4 (Async Job Queue)
-- **Last Updated**: 2025-12-18
-- **Test Count**: 228 tests passing
+- **Phase 4**: IN PROGRESS (PR 4.1, 4.2, 4.3 complete)
+- **Next PR**: PR 4.4 (Job Management & Cleanup)
+- **Last Updated**: 2025-12-19
+- **Test Count**: 239 tests passing
 
 ## Session Notes
 - 2025-12-15: Merged Copilot onboarding PRs (#10, #6), closed duplicate (#9), removed blocking ruleset
@@ -353,3 +355,5 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - 2025-12-17: Starting Phase 4 - Refined PR breakdown; Job model/CRUD/endpoints already scaffolded, need Celery wiring
 - 2025-12-17: Completed PR 4.1 - Celery Infrastructure Setup (celery app, worker, flower, health checks)
 - 2025-12-18: Completed PR 4.2 - Async Inference Task (run_inference_task, status transitions, timing metrics)
+- 2025-12-19: PR 4.2 merged after 3 rounds of Copilot review (error handling, path traversal security, rollback fixes)
+- 2025-12-19: Completed PR 4.3 - Job Results Endpoint (GET /jobs/{id}/result, wait parameter, error_traceback exposure)

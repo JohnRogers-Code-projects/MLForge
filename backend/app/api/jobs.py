@@ -1,14 +1,16 @@
 """API routes for async job management."""
 
+import asyncio
 import logging
 
 from fastapi import APIRouter, HTTPException, Query, status
+from fastapi.responses import JSONResponse
 
 from app.api.deps import DBSession
 from app.crud import job_crud, model_crud
 from app.models.job import JobStatus
 from app.models.ml_model import ModelStatus
-from app.schemas.job import JobCreate, JobListResponse, JobResponse
+from app.schemas.job import JobCreate, JobListResponse, JobResponse, JobResultResponse
 from app.tasks.inference import run_inference_task
 
 logger = logging.getLogger(__name__)
@@ -119,6 +121,95 @@ async def get_job(
             detail=f"Job with ID {job_id} not found",
         )
     return JobResponse.model_validate(job)
+
+
+# Terminal states where the job is considered "done"
+_TERMINAL_STATUSES = {JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED}
+# Processing states where the job is still in-flight
+_PROCESSING_STATUSES = {JobStatus.PENDING, JobStatus.QUEUED, JobStatus.RUNNING}
+
+# Maximum wait time in seconds (prevent long-running HTTP requests)
+_MAX_WAIT_SECONDS = 30
+# Polling interval when waiting
+_POLL_INTERVAL_SECONDS = 0.5
+
+
+@router.get(
+    "/{job_id}/result",
+    response_model=None,  # Disable auto-generation since we return different types
+    responses={
+        200: {"model": JobResultResponse, "description": "Job completed (success or failure)"},
+        202: {"description": "Job still processing"},
+        404: {"description": "Job not found"},
+    },
+)
+async def get_job_result(
+    job_id: str,
+    db: DBSession,
+    wait: float = Query(
+        default=0,
+        ge=0,
+        le=_MAX_WAIT_SECONDS,
+        description=(
+            f"Seconds to wait for job completion (0-{_MAX_WAIT_SECONDS}). "
+            "If 0, returns immediately. If > 0, polls until job completes or timeout."
+        ),
+    ),
+):
+    """
+    Get the result of a job.
+
+    - Returns 200 with result if job completed successfully
+    - Returns 200 with error details if job failed
+    - Returns 202 if job is still processing
+    - Returns 404 if job not found
+
+    Use the `wait` parameter to poll for completion. The server will hold the
+    connection open and check the job status periodically until it completes
+    or the timeout is reached.
+    """
+    job = await job_crud.get(db, job_id)
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Job with ID {job_id} not found",
+        )
+
+    # If wait > 0, poll until job reaches terminal state or timeout
+    if wait > 0 and job.status in _PROCESSING_STATUSES:
+        elapsed = 0.0
+        while elapsed < wait:
+            await asyncio.sleep(_POLL_INTERVAL_SECONDS)
+            elapsed += _POLL_INTERVAL_SECONDS
+
+            # Refresh from database to get latest status
+            await db.refresh(job)
+
+            if job.status in _TERMINAL_STATUSES:
+                break
+
+    # Build response based on final status
+    if job.status in _PROCESSING_STATUSES:
+        # Still processing - return 202 Accepted
+        return JSONResponse(
+            status_code=status.HTTP_202_ACCEPTED,
+            content={
+                "job_id": job.id,
+                "status": job.status.value,
+                "message": "Job is still processing",
+            },
+        )
+
+    # Job reached terminal state - return full result
+    return JobResultResponse(
+        job_id=job.id,
+        status=job.status,
+        result=job.output_data if job.status == JobStatus.COMPLETED else None,
+        error_message=job.error_message if job.status == JobStatus.FAILED else None,
+        error_traceback=job.error_traceback if job.status == JobStatus.FAILED else None,
+        inference_time_ms=job.inference_time_ms,
+        completed_at=job.completed_at,
+    )
 
 
 @router.post("/{job_id}/cancel", response_model=JobResponse)

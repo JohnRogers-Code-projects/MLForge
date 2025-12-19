@@ -314,3 +314,285 @@ class TestJobCancellation:
             "/api/v1/jobs/00000000-0000-0000-0000-000000000000/cancel"
         )
         assert response.status_code == 404
+
+
+class TestJobResults:
+    """Tests for job result retrieval endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_get_result_completed_job(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Test getting result of a successfully completed job."""
+        model_id = await setup_ready_model(client, valid_onnx_file, "result-completed-model")
+
+        with patch("app.api.jobs.run_inference_task") as mock_task:
+            mock_task.delay.return_value.id = "mock-task-id"
+            job_response = await client.post(
+                "/api/v1/jobs",
+                json={"model_id": model_id, "input_data": {"input": [[1.0] * 10]}},
+            )
+        job_id = job_response.json()["id"]
+
+        # Simulate job completion by directly updating via CRUD
+        from app.models.job import JobStatus
+        from app.crud import job_crud
+        from app.database import get_db
+
+        # Get a fresh session from the client's dependency override
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            job = await job_crud.get(session, job_id)
+            await job_crud.update(
+                session,
+                db_obj=job,
+                obj_in={"status": JobStatus.COMPLETED, "output_data": {"output": [[2.0] * 10]}},
+            )
+            await session.commit()
+            break
+
+        response = await client.get(f"/api/v1/jobs/{job_id}/result")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["job_id"] == job_id
+        assert data["status"] == "completed"
+        assert data["result"] == {"output": [[2.0] * 10]}
+        assert data["error_message"] is None
+        assert data["error_traceback"] is None
+
+    @pytest.mark.asyncio
+    async def test_get_result_failed_job(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Test getting result of a failed job returns error details."""
+        model_id = await setup_ready_model(client, valid_onnx_file, "result-failed-model")
+
+        with patch("app.api.jobs.run_inference_task") as mock_task:
+            mock_task.delay.return_value.id = "mock-task-id"
+            job_response = await client.post(
+                "/api/v1/jobs",
+                json={"model_id": model_id, "input_data": {"input": [[1.0] * 10]}},
+            )
+        job_id = job_response.json()["id"]
+
+        # Simulate job failure
+        from app.models.job import JobStatus
+        from app.crud import job_crud
+        from app.database import get_db
+
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            job = await job_crud.get(session, job_id)
+            await job_crud.update(
+                session,
+                db_obj=job,
+                obj_in={
+                    "status": JobStatus.FAILED,
+                    "error_message": "Model inference failed",
+                    "error_traceback": "Traceback (most recent call last):\n  File ...\nRuntimeError: CUDA out of memory",
+                },
+            )
+            await session.commit()
+            break
+
+        response = await client.get(f"/api/v1/jobs/{job_id}/result")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["job_id"] == job_id
+        assert data["status"] == "failed"
+        assert data["result"] is None
+        assert data["error_message"] == "Model inference failed"
+        assert "CUDA out of memory" in data["error_traceback"]
+
+    @pytest.mark.asyncio
+    async def test_get_result_processing_job_returns_202(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Test getting result of a still-processing job returns 202."""
+        model_id = await setup_ready_model(client, valid_onnx_file, "result-processing-model")
+
+        with patch("app.api.jobs.run_inference_task") as mock_task:
+            mock_task.delay.return_value.id = "mock-task-id"
+            job_response = await client.post(
+                "/api/v1/jobs",
+                json={"model_id": model_id, "input_data": {"input": [[1.0] * 10]}},
+            )
+        job_id = job_response.json()["id"]
+        # Job is in QUEUED status
+
+        response = await client.get(f"/api/v1/jobs/{job_id}/result")
+        assert response.status_code == 202
+        data = response.json()
+        assert data["job_id"] == job_id
+        assert data["status"] == "queued"
+        assert data["message"] == "Job is still processing"
+
+    @pytest.mark.asyncio
+    async def test_get_result_pending_job_returns_202(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Test getting result of a pending job returns 202."""
+        model_id = await setup_ready_model(client, valid_onnx_file, "result-pending-model")
+
+        # Create job that stays PENDING (Celery fails)
+        with patch("app.api.jobs.run_inference_task") as mock_task:
+            mock_task.delay.side_effect = Exception("Redis unavailable")
+            job_response = await client.post(
+                "/api/v1/jobs",
+                json={"model_id": model_id, "input_data": {"input": [[1.0] * 10]}},
+            )
+        job_id = job_response.json()["id"]
+        assert job_response.json()["status"] == "pending"
+
+        response = await client.get(f"/api/v1/jobs/{job_id}/result")
+        assert response.status_code == 202
+        data = response.json()
+        assert data["job_id"] == job_id
+        assert data["status"] == "pending"
+
+    @pytest.mark.asyncio
+    async def test_get_result_cancelled_job(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Test getting result of a cancelled job."""
+        model_id = await setup_ready_model(client, valid_onnx_file, "result-cancelled-model")
+
+        with patch("app.api.jobs.run_inference_task") as mock_task:
+            mock_task.delay.return_value.id = "mock-task-id"
+            job_response = await client.post(
+                "/api/v1/jobs",
+                json={"model_id": model_id, "input_data": {"input": [[1.0] * 10]}},
+            )
+        job_id = job_response.json()["id"]
+
+        # Cancel the job
+        await client.post(f"/api/v1/jobs/{job_id}/cancel")
+
+        response = await client.get(f"/api/v1/jobs/{job_id}/result")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["job_id"] == job_id
+        assert data["status"] == "cancelled"
+        assert data["result"] is None
+        assert data["error_message"] is None
+
+    @pytest.mark.asyncio
+    async def test_get_result_not_found(self, client: AsyncClient):
+        """Test getting result of nonexistent job returns 404."""
+        response = await client.get(
+            "/api/v1/jobs/00000000-0000-0000-0000-000000000000/result"
+        )
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"].lower()
+
+    @pytest.mark.asyncio
+    async def test_get_result_with_wait_completes(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Test wait parameter returns when job completes."""
+        model_id = await setup_ready_model(client, valid_onnx_file, "result-wait-complete-model")
+
+        with patch("app.api.jobs.run_inference_task") as mock_task:
+            mock_task.delay.return_value.id = "mock-task-id"
+            job_response = await client.post(
+                "/api/v1/jobs",
+                json={"model_id": model_id, "input_data": {"input": [[1.0] * 10]}},
+            )
+        job_id = job_response.json()["id"]
+
+        # Complete the job before requesting result
+        from app.models.job import JobStatus
+        from app.crud import job_crud
+        from app.database import get_db
+
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            job = await job_crud.get(session, job_id)
+            await job_crud.update(
+                session,
+                db_obj=job,
+                obj_in={"status": JobStatus.COMPLETED, "output_data": {"output": [[2.0] * 10]}},
+            )
+            await session.commit()
+            break
+
+        # Request with wait - should return immediately since job is done
+        response = await client.get(f"/api/v1/jobs/{job_id}/result?wait=5")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "completed"
+
+    @pytest.mark.asyncio
+    async def test_get_result_with_wait_timeout(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Test wait parameter times out if job doesn't complete."""
+        model_id = await setup_ready_model(client, valid_onnx_file, "result-wait-timeout-model")
+
+        with patch("app.api.jobs.run_inference_task") as mock_task:
+            mock_task.delay.return_value.id = "mock-task-id"
+            job_response = await client.post(
+                "/api/v1/jobs",
+                json={"model_id": model_id, "input_data": {"input": [[1.0] * 10]}},
+            )
+        job_id = job_response.json()["id"]
+
+        # Don't complete the job - it stays QUEUED
+        # Use a short wait to not slow down tests
+        response = await client.get(f"/api/v1/jobs/{job_id}/result?wait=1")
+        assert response.status_code == 202
+        data = response.json()
+        assert data["status"] == "queued"
+        assert data["message"] == "Job is still processing"
+
+    @pytest.mark.asyncio
+    async def test_get_result_wait_exceeds_max(self, client: AsyncClient):
+        """Test wait parameter validation rejects values exceeding max."""
+        # Max wait is 30 seconds
+        response = await client.get(
+            "/api/v1/jobs/00000000-0000-0000-0000-000000000000/result?wait=60"
+        )
+        assert response.status_code == 422  # Validation error
+
+    @pytest.mark.asyncio
+    async def test_get_result_wait_negative(self, client: AsyncClient):
+        """Test wait parameter validation rejects negative values."""
+        response = await client.get(
+            "/api/v1/jobs/00000000-0000-0000-0000-000000000000/result?wait=-1"
+        )
+        assert response.status_code == 422  # Validation error
+
+    @pytest.mark.asyncio
+    async def test_get_result_includes_timing_info(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Test completed job result includes timing info."""
+        model_id = await setup_ready_model(client, valid_onnx_file, "result-timing-model")
+
+        with patch("app.api.jobs.run_inference_task") as mock_task:
+            mock_task.delay.return_value.id = "mock-task-id"
+            job_response = await client.post(
+                "/api/v1/jobs",
+                json={"model_id": model_id, "input_data": {"input": [[1.0] * 10]}},
+            )
+        job_id = job_response.json()["id"]
+
+        from app.models.job import JobStatus
+        from app.crud import job_crud
+        from app.database import get_db
+
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            job = await job_crud.get(session, job_id)
+            await job_crud.update(
+                session,
+                db_obj=job,
+                obj_in={
+                    "status": JobStatus.COMPLETED,
+                    "output_data": {"output": [[2.0] * 10]},
+                    "inference_time_ms": 42.5,
+                },
+            )
+            await session.commit()
+            break
+
+        response = await client.get(f"/api/v1/jobs/{job_id}/result")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["inference_time_ms"] == 42.5
