@@ -108,7 +108,7 @@ def run_inference_task(self, job_id: str) -> dict[str, Any]:
             model_path = (base_path / model.file_path).resolve()
 
             # Security check: ensure resolved path is within storage directory
-            if not str(model_path).startswith(str(base_path)):
+            if not model_path.is_relative_to(base_path):
                 raise ValueError(f"Model {job.model_id} has invalid file path")
 
             logger.info(f"Running inference for job {job_id} using model {model.name}")
