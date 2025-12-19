@@ -203,14 +203,14 @@ backend/
 - [x] Add JobResultResponse schema for result endpoint
 - [x] Tests for result retrieval and waiting behavior (11 new tests, 239 total)
 
-#### PR 4.4: Job Management & Cleanup
-- [ ] Update `POST /jobs/{id}/cancel` to revoke Celery task
-- [ ] Configure retry with exponential backoff (on transient failures)
-- [ ] Add `task_soft_time_limit` and `task_time_limit` configuration
-- [ ] Create periodic cleanup task for old completed/failed jobs
-- [ ] Add `job_retention_days` setting (configurable retention period)
-- [ ] Add `DELETE /jobs/{id}` endpoint for manual deletion
-- [ ] Tests for cancellation, retries, and cleanup (~12 tests)
+#### PR 4.4: Job Management & Cleanup ✅ COMPLETE
+- [x] Update `POST /jobs/{id}/cancel` to revoke Celery task (also supports RUNNING jobs now)
+- [x] Retry with exponential backoff already configured in PR 4.2 (verified)
+- [x] Apply `soft_time_limit` and `time_limit` to inference task decorator
+- [x] Create periodic cleanup task (`cleanup_old_jobs`) with Celery beat schedule
+- [x] `job_retention_days` setting already in config (verified)
+- [x] Add `DELETE /jobs/{id}` endpoint for manual deletion (terminal states only)
+- [x] Tests for cancellation, deletion, and cleanup (14 new tests, 253 total)
 
 ---
 
@@ -336,10 +336,10 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - **Phase 1**: ✅ COMPLETE
 - **Phase 2**: ✅ COMPLETE
 - **Phase 3**: ✅ COMPLETE
-- **Phase 4**: IN PROGRESS (PR 4.1, 4.2, 4.3 complete)
-- **Next PR**: PR 4.4 (Job Management & Cleanup)
+- **Phase 4**: ✅ COMPLETE
+- **Next Phase**: Phase 5 (Next.js Dashboard)
 - **Last Updated**: 2025-12-19
-- **Test Count**: 239 tests passing
+- **Test Count**: 253 tests passing
 
 ## Session Notes
 - 2025-12-15: Merged Copilot onboarding PRs (#10, #6), closed duplicate (#9), removed blocking ruleset
@@ -357,3 +357,4 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - 2025-12-18: Completed PR 4.2 - Async Inference Task (run_inference_task, status transitions, timing metrics)
 - 2025-12-19: PR 4.2 merged after 3 rounds of Copilot review (error handling, path traversal security, rollback fixes)
 - 2025-12-19: Completed PR 4.3 - Job Results Endpoint (GET /jobs/{id}/result, wait parameter, error_traceback exposure)
+- 2025-12-19: Completed PR 4.4 - Job Management & Cleanup (cancel revokes task, DELETE endpoint, periodic cleanup task)

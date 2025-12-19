@@ -45,6 +45,8 @@ def _get_sync_session() -> Session:
     retry_backoff=True,  # Exponential backoff
     retry_backoff_max=600,  # Max 10 minutes between retries
     retry_jitter=True,  # Add randomness to prevent thundering herd
+    soft_time_limit=settings.celery_task_soft_time_limit,  # Raises SoftTimeLimitExceeded
+    time_limit=settings.celery_task_time_limit,  # Hard kill after this
 )
 def run_inference_task(self, job_id: str) -> dict[str, Any]:
     """Run inference for a job asynchronously.
