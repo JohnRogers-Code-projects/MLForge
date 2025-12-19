@@ -61,7 +61,10 @@ async def create_job(
     except Exception as e:
         # If queuing fails, leave job in PENDING state
         # (could be picked up by a retry mechanism later)
-        logger.error(f"Failed to queue task for job {job.id}: {e}")
+        logger.warning(
+            f"Failed to queue task for job {job.id}: {e}",
+            exc_info=True,
+        )
 
     return JobResponse.model_validate(job)
 

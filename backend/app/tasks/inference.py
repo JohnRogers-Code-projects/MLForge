@@ -11,9 +11,9 @@ import logging
 import time
 import traceback
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
-from celery import current_task
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -41,6 +41,7 @@ def _get_sync_session() -> Session:
     max_retries=settings.job_max_retries,
     default_retry_delay=60,  # 1 minute between retries
     autoretry_for=(Exception,),
+    dont_autoretry_for=(ONNXError,),  # ONNX errors are permanent, don't retry
     retry_backoff=True,  # Exponential backoff
     retry_backoff_max=600,  # Max 10 minutes between retries
     retry_jitter=True,  # Add randomness to prevent thundering herd
@@ -98,7 +99,7 @@ def run_inference_task(self, job_id: str) -> dict[str, Any]:
 
             # Run inference
             onnx_service = ONNXService()
-            model_path = settings.model_storage_path + "/" + model.file_path
+            model_path = Path(settings.model_storage_path) / model.file_path
 
             logger.info(f"Running inference for job {job_id} using model {model.name}")
             result = onnx_service.run_inference(model_path, job.input_data)
@@ -126,6 +127,7 @@ def run_inference_task(self, job_id: str) -> dict[str, Any]:
 
         except ONNXError as e:
             # ONNX-specific errors (model load, inference, input validation)
+            # These are permanent failures - don't retry (excluded via dont_autoretry_for)
             error_msg = str(e)
             logger.error(f"ONNX error for job {job_id}: {error_msg}")
 
@@ -142,26 +144,23 @@ def run_inference_task(self, job_id: str) -> dict[str, Any]:
             }
 
         except Exception as e:
-            # Unexpected errors - may be retried
+            # Unexpected errors - Celery will auto-retry via autoretry_for
             error_msg = str(e)
             logger.error(f"Unexpected error for job {job_id}: {error_msg}")
 
-            # Check if we should retry
-            if self.request.retries < self.max_retries:
-                logger.info(f"Retrying job {job_id} (attempt {self.request.retries + 1}/{self.max_retries})")
-                job.retries = self.request.retries + 1
-                db.commit()
-                raise  # Let Celery handle the retry
-
-            # Max retries exceeded - mark as failed
-            job.status = JobStatus.FAILED
-            job.error_message = f"Max retries exceeded: {error_msg}"
-            job.error_traceback = traceback.format_exc()
-            job.completed_at = datetime.now(timezone.utc)
+            # Update retry count for tracking
+            job.retries = self.request.retries + 1
             db.commit()
 
-            return {
-                "job_id": job_id,
-                "status": "failed",
-                "error_message": error_msg,
-            }
+            # Re-raise to let Celery handle retry with exponential backoff
+            raise
+
+        finally:
+            # Safety cleanup: if job is still RUNNING after task exits unexpectedly,
+            # mark it as FAILED to prevent it from being stuck forever
+            if job.status == JobStatus.RUNNING:
+                logger.warning(f"Job {job_id} still in RUNNING state at task exit, marking as FAILED")
+                job.status = JobStatus.FAILED
+                job.error_message = "Task exited unexpectedly while job was running"
+                job.completed_at = datetime.now(timezone.utc)
+                db.commit()

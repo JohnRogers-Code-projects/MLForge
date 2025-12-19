@@ -5,7 +5,7 @@ including status transitions, timing metrics, error handling, and retries.
 """
 
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -74,7 +74,6 @@ class TestRunInferenceTask:
             patch("app.tasks.inference._get_sync_session") as mock_session,
             patch("app.tasks.inference.ONNXService") as mock_onnx_class,
             patch("app.tasks.inference.settings") as mock_settings,
-            patch("app.tasks.inference.current_task") as mock_current_task,
         ):
             mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
             mock_session.return_value.__exit__ = MagicMock(return_value=False)
@@ -326,7 +325,7 @@ class TestRunInferenceTask:
             from app.celery import celery_app
             celery_app.conf.task_always_eager = True
 
-            result = run_inference_task.apply(args=[mock_job.id])
+            run_inference_task.apply(args=[mock_job.id])
 
         # In eager mode, task_id and hostname are set
         assert mock_job.celery_task_id is not None
