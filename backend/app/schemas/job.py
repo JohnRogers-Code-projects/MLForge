@@ -40,6 +40,7 @@ class JobResponse(BaseModel):
     celery_task_id: Optional[str] = None
     worker_id: Optional[str] = None
     error_message: Optional[str] = None
+    error_traceback: Optional[str] = None
     inference_time_ms: Optional[float] = None
     queue_time_ms: Optional[float] = None
     retries: int = 0
@@ -58,3 +59,33 @@ class JobListResponse(BaseModel):
     page: int
     page_size: int
     total_pages: int
+
+
+class JobResultResponse(BaseModel):
+    """Schema for job result endpoint response.
+
+    Returns the result of a completed job, or error details if failed.
+    """
+
+    job_id: str
+    status: JobStatus
+    result: Optional[dict[str, Any]] = Field(
+        None,
+        description="Inference result if job completed successfully",
+    )
+    error_message: Optional[str] = Field(
+        None,
+        description="Error message if job failed",
+    )
+    error_traceback: Optional[str] = Field(
+        None,
+        description="Full error traceback if job failed (for debugging)",
+    )
+    inference_time_ms: Optional[float] = Field(
+        None,
+        description="Time taken for inference in milliseconds",
+    )
+    completed_at: Optional[datetime] = Field(
+        None,
+        description="Timestamp when job completed",
+    )
