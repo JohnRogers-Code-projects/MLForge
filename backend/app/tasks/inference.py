@@ -74,13 +74,18 @@ def run_inference_task(self, job_id: str) -> dict[str, Any]:
         queue_time_ms = (datetime.now(timezone.utc) - job.created_at).total_seconds() * 1000
 
         # Update job status to RUNNING
-        job.status = JobStatus.RUNNING
-        job.started_at = datetime.now(timezone.utc)
-        job.queue_time_ms = queue_time_ms
-        job.celery_task_id = self.request.id
-        job.worker_id = self.request.hostname
-        job.retries = self.request.retries
-        db.commit()
+        try:
+            job.status = JobStatus.RUNNING
+            job.started_at = datetime.now(timezone.utc)
+            job.queue_time_ms = queue_time_ms
+            job.celery_task_id = self.request.id
+            job.worker_id = self.request.hostname
+            job.retries = self.request.retries
+            db.commit()
+        except Exception:
+            db.rollback()
+            logger.exception(f"Failed to update job {job_id} to RUNNING")
+            raise
 
         try:
             # Fetch model
@@ -97,9 +102,14 @@ def run_inference_task(self, job_id: str) -> dict[str, Any]:
             if not model.file_path:
                 raise ValueError(f"Model {job.model_id} has no file uploaded")
 
-            # Run inference
+            # Run inference - validate path to prevent directory traversal
             onnx_service = ONNXService()
-            model_path = Path(settings.model_storage_path) / model.file_path
+            base_path = Path(settings.model_storage_path).resolve()
+            model_path = (base_path / model.file_path).resolve()
+
+            # Security check: ensure resolved path is within storage directory
+            if not str(model_path).startswith(str(base_path)):
+                raise ValueError(f"Model {job.model_id} has invalid file path")
 
             logger.info(f"Running inference for job {job_id} using model {model.name}")
             result = onnx_service.run_inference(model_path, job.input_data)
@@ -144,36 +154,44 @@ def run_inference_task(self, job_id: str) -> dict[str, Any]:
             }
 
         except Exception as e:
-            # Unexpected errors - Celery will auto-retry via autoretry_for
+            # Unexpected errors - handle retry logic here to avoid finally block issues
             error_msg = str(e)
             logger.error(f"Unexpected error for job {job_id}: {error_msg}")
 
-            # Update retry count for tracking
-            job.retries = self.request.retries + 1
-            db.commit()
+            # Update retry count
+            next_retry = self.request.retries + 1
+            job.retries = next_retry
+
+            # Check if we've exceeded max retries
+            if next_retry > self.max_retries:
+                # Max retries exceeded - mark as permanently failed
+                logger.warning(
+                    f"Job {job_id} failed after {self.max_retries} retries, "
+                    "marking as FAILED"
+                )
+                job.status = JobStatus.FAILED
+                job.error_message = f"Max retries exceeded: {error_msg}"
+                job.error_traceback = traceback.format_exc()
+                job.completed_at = datetime.now(timezone.utc)
+
+                try:
+                    db.commit()
+                except Exception:
+                    db.rollback()
+                    logger.exception(f"Failed to commit FAILED status for job {job_id}")
+
+                return {
+                    "job_id": job_id,
+                    "status": "failed",
+                    "error_message": error_msg,
+                }
+
+            # Retries remain - persist retry count and re-raise for Celery
+            try:
+                db.commit()
+            except Exception:
+                db.rollback()
+                logger.exception(f"Failed to commit retry count for job {job_id}")
 
             # Re-raise to let Celery handle retry with exponential backoff
             raise
-
-        finally:
-            # Safety cleanup: if job is still RUNNING after task exits unexpectedly,
-            # mark it as FAILED only if we've exhausted all retries.
-            # If retries remain, leave as RUNNING so Celery can retry.
-            if job.status == JobStatus.RUNNING:
-                if self.request.retries >= self.max_retries:
-                    # Max retries exceeded - mark as failed
-                    logger.warning(
-                        f"Job {job_id} still RUNNING at task exit with "
-                        f"{self.request.retries} retries (max={self.max_retries}), "
-                        "marking as FAILED"
-                    )
-                    job.status = JobStatus.FAILED
-                    job.error_message = "Task failed after maximum retries"
-                    job.completed_at = datetime.now(timezone.utc)
-                    db.commit()
-                else:
-                    # Retry pending - keep as RUNNING
-                    logger.info(
-                        f"Job {job_id} still RUNNING, retry "
-                        f"{self.request.retries + 1}/{self.max_retries} pending"
-                    )

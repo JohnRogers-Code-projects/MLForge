@@ -42,7 +42,11 @@ async def create_job(
     if model.status != ModelStatus.READY:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Model {job_in.model_id} is not ready for inference (status: {model.status})",
+            detail=(
+                f"Model {job_in.model_id} is not ready for inference "
+                f"(current status: {model.status}). "
+                "Please ensure the model file is uploaded and validated successfully."
+            ),
         )
 
     # Create job in PENDING state
