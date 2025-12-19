@@ -1,6 +1,6 @@
 """CRUD operations for jobs."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import func, select
@@ -97,9 +97,9 @@ class CRUDJob(CRUDBase[Job, JobCreate, JobStatusUpdate]):
             job.error_message = error_message
 
         if status == JobStatus.RUNNING:
-            job.started_at = datetime.utcnow()
+            job.started_at = datetime.now(timezone.utc)
         elif status in (JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED):
-            job.completed_at = datetime.utcnow()
+            job.completed_at = datetime.now(timezone.utc)
 
         await db.flush()
         await db.refresh(job)

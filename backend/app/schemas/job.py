@@ -37,6 +37,8 @@ class JobResponse(BaseModel):
     priority: JobPriority
     input_data: dict[str, Any]
     output_data: Optional[dict[str, Any]] = None
+    celery_task_id: Optional[str] = None
+    worker_id: Optional[str] = None
     error_message: Optional[str] = None
     inference_time_ms: Optional[float] = None
     queue_time_ms: Optional[float] = None
