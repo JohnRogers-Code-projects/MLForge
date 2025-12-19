@@ -157,10 +157,23 @@ def run_inference_task(self, job_id: str) -> dict[str, Any]:
 
         finally:
             # Safety cleanup: if job is still RUNNING after task exits unexpectedly,
-            # mark it as FAILED to prevent it from being stuck forever
+            # mark it as FAILED only if we've exhausted all retries.
+            # If retries remain, leave as RUNNING so Celery can retry.
             if job.status == JobStatus.RUNNING:
-                logger.warning(f"Job {job_id} still in RUNNING state at task exit, marking as FAILED")
-                job.status = JobStatus.FAILED
-                job.error_message = "Task exited unexpectedly while job was running"
-                job.completed_at = datetime.now(timezone.utc)
-                db.commit()
+                if self.request.retries >= self.max_retries:
+                    # Max retries exceeded - mark as failed
+                    logger.warning(
+                        f"Job {job_id} still RUNNING at task exit with "
+                        f"{self.request.retries} retries (max={self.max_retries}), "
+                        "marking as FAILED"
+                    )
+                    job.status = JobStatus.FAILED
+                    job.error_message = "Task failed after maximum retries"
+                    job.completed_at = datetime.now(timezone.utc)
+                    db.commit()
+                else:
+                    # Retry pending - keep as RUNNING
+                    logger.info(
+                        f"Job {job_id} still RUNNING, retry "
+                        f"{self.request.retries + 1}/{self.max_retries} pending"
+                    )

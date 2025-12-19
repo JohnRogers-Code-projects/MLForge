@@ -21,7 +21,7 @@ engine = create_async_engine(
 )
 
 # Sync engine for Celery tasks (convert async URL to sync)
-# postgresql+asyncpg:// -> postgresql://
+# postgresql+asyncpg:// -> postgresql://, sqlite+aiosqlite:// -> sqlite://
 _sync_url = settings.database_url.replace("+asyncpg", "").replace("+aiosqlite", "")
 sync_engine = create_engine(
     _sync_url,
