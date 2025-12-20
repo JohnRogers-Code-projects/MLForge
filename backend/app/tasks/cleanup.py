@@ -7,7 +7,7 @@ jobs based on the configured retention period.
 import logging
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import delete, select, func
+from sqlalchemy import delete
 
 from app.celery import celery_app
 from app.config import settings
@@ -46,22 +46,7 @@ def cleanup_old_jobs() -> dict:
 
     with _get_sync_session() as db:
         try:
-            # Count jobs to be deleted (for logging)
-            count_query = (
-                select(func.count())
-                .select_from(Job)
-                .where(
-                    Job.status.in_(_CLEANUP_STATUSES),
-                    Job.completed_at < cutoff_date,
-                )
-            )
-            count = db.execute(count_query).scalar() or 0
-
-            if count == 0:
-                logger.info("No old jobs to clean up")
-                return {"deleted_count": 0, "error": None}
-
-            # Delete old jobs
+            # Delete old jobs and get the actual count from the result
             delete_query = (
                 delete(Job)
                 .where(
@@ -69,11 +54,16 @@ def cleanup_old_jobs() -> dict:
                     Job.completed_at < cutoff_date,
                 )
             )
-            db.execute(delete_query)
+            result = db.execute(delete_query)
+            deleted_count = result.rowcount
             db.commit()
 
-            logger.info(f"Cleaned up {count} old jobs")
-            return {"deleted_count": count, "error": None}
+            if deleted_count == 0:
+                logger.info("No old jobs to clean up")
+            else:
+                logger.info(f"Cleaned up {deleted_count} old jobs")
+
+            return {"deleted_count": deleted_count, "error": None}
 
         except Exception as e:
             db.rollback()
@@ -89,5 +79,5 @@ celery_app.conf.beat_schedule = celery_app.conf.beat_schedule or {}
 celery_app.conf.beat_schedule["cleanup-old-jobs-daily"] = {
     "task": "app.tasks.cleanup.cleanup_old_jobs",
     "schedule": 86400.0,  # 24 hours in seconds
-    "options": {"queue": "celery"},
+    "options": {"queue": "default"},
 }

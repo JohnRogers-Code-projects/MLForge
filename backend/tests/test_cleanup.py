@@ -15,8 +15,8 @@ class TestCleanupTask:
         mock_session.__enter__ = MagicMock(return_value=mock_session)
         mock_session.__exit__ = MagicMock(return_value=False)
 
-        # Mock the count query to return 5 jobs
-        mock_session.execute.return_value.scalar.return_value = 5
+        # Mock the delete query to return 5 deleted rows
+        mock_session.execute.return_value.rowcount = 5
 
         with patch("app.tasks.cleanup._get_sync_session", return_value=mock_session):
             with patch("app.tasks.cleanup.settings") as mock_settings:
@@ -34,8 +34,8 @@ class TestCleanupTask:
         mock_session.__enter__ = MagicMock(return_value=mock_session)
         mock_session.__exit__ = MagicMock(return_value=False)
 
-        # Mock the count query to return 0 jobs
-        mock_session.execute.return_value.scalar.return_value = 0
+        # Mock the delete query to return 0 deleted rows
+        mock_session.execute.return_value.rowcount = 0
 
         with patch("app.tasks.cleanup._get_sync_session", return_value=mock_session):
             with patch("app.tasks.cleanup.settings") as mock_settings:
@@ -44,8 +44,8 @@ class TestCleanupTask:
 
         assert result["deleted_count"] == 0
         assert result["error"] is None
-        # Commit should NOT be called when there are no jobs to delete
-        mock_session.commit.assert_not_called()
+        # Commit is still called (simpler logic, no early return)
+        mock_session.commit.assert_called_once()
 
     def test_cleanup_handles_database_error(self):
         """Test that cleanup handles database errors gracefully."""
@@ -80,7 +80,7 @@ class TestCleanupTask:
         mock_session = MagicMock()
         mock_session.__enter__ = MagicMock(return_value=mock_session)
         mock_session.__exit__ = MagicMock(return_value=False)
-        mock_session.execute.return_value.scalar.return_value = 0
+        mock_session.execute.return_value.rowcount = 0
 
         with patch("app.tasks.cleanup._get_sync_session", return_value=mock_session):
             with patch("app.tasks.cleanup.settings") as mock_settings:
