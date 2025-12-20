@@ -8,44 +8,10 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Header } from "@/components/Header";
+import { StatusBadge } from "@/components/StatusBadge";
 import { getModel, deleteModel, validateModel, archiveModel } from "@/lib/models";
+import { formatBytes, formatDateTime } from "@/lib/utils";
 import type { Model } from "@/types/api";
-
-function StatusBadge({ status }: { status: Model["status"] }) {
-  const colors: Record<Model["status"], string> = {
-    pending: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
-    uploaded: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-    validating: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
-    ready: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
-    error: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
-    archived: "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400",
-  };
-
-  return (
-    <span className={`px-2.5 py-1 text-sm font-medium rounded-full ${colors[status]}`}>
-      {status}
-    </span>
-  );
-}
-
-function formatBytes(bytes: number | null): string {
-  if (bytes === null) return "-";
-  if (bytes === 0) return "0 B";
-  const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-}
-
-function formatDateTime(dateString: string): string {
-  return new Date(dateString).toLocaleString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 function MetadataSection({ title, data }: { title: string; data: unknown }) {
   if (!data) return null;
@@ -93,10 +59,11 @@ export default function ModelDetailPage() {
     if (!model) return;
     try {
       setActionLoading("validate");
+      setError(null);
       const updated = await validateModel(model.id);
       setModel(updated);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to validate model");
+      setError(err instanceof Error ? err.message : "Failed to validate model");
     } finally {
       setActionLoading(null);
     }
@@ -108,10 +75,11 @@ export default function ModelDetailPage() {
 
     try {
       setActionLoading("archive");
+      setError(null);
       const updated = await archiveModel(model.id);
       setModel(updated);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to archive model");
+      setError(err instanceof Error ? err.message : "Failed to archive model");
     } finally {
       setActionLoading(null);
     }
@@ -123,10 +91,11 @@ export default function ModelDetailPage() {
 
     try {
       setActionLoading("delete");
+      setError(null);
       await deleteModel(model.id);
       router.push("/models");
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to delete model");
+      setError(err instanceof Error ? err.message : "Failed to delete model");
       setActionLoading(null);
     }
   };
@@ -172,7 +141,7 @@ export default function ModelDetailPage() {
                     Version {model.version}
                   </p>
                 </div>
-                <StatusBadge status={model.status} />
+                <StatusBadge status={model.status} size="md" />
               </div>
               {model.description && (
                 <p className="mt-2 text-gray-600 dark:text-gray-300">

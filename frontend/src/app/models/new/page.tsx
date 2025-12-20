@@ -8,7 +8,8 @@ import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Header } from "@/components/Header";
-import { createModel, uploadModelFile, validateModel } from "@/lib/models";
+import { createModel, uploadModelFile, validateModel, deleteModel } from "@/lib/models";
+import { formatBytes } from "@/lib/utils";
 
 type UploadStep = "form" | "uploading" | "validating" | "done";
 
@@ -83,6 +84,8 @@ export default function NewModelPage() {
       return;
     }
 
+    let createdModelId: string | null = null;
+
     try {
       setError(null);
       setStep("uploading");
@@ -94,6 +97,7 @@ export default function NewModelPage() {
         version: version.trim(),
         description: description.trim() || undefined,
       });
+      createdModelId = model.id;
 
       setProgress("Uploading file...");
 
@@ -109,22 +113,28 @@ export default function NewModelPage() {
       setStep("done");
       setProgress("Model uploaded and validated successfully!");
 
-      // Redirect after short delay
-      setTimeout(() => {
-        router.push(`/models/${model.id}`);
-      }, 1500);
+      // Redirect immediately
+      router.push(`/models/${model.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed");
+      const errorMessage = err instanceof Error ? err.message : "Upload failed";
+
+      // If model was created but subsequent steps failed, offer recovery options
+      if (createdModelId) {
+        setError(
+          `${errorMessage}. Model was created but upload/validation failed. ` +
+          `You can try again from the model page or delete it.`
+        );
+        // Clean up the partially created model
+        try {
+          await deleteModel(createdModelId);
+        } catch {
+          // Ignore cleanup errors, user can delete manually
+        }
+      } else {
+        setError(errorMessage);
+      }
       setStep("form");
     }
-  };
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return "0 B";
-    const k = 1024;
-    const sizes = ["B", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
   return (
@@ -162,6 +172,7 @@ export default function NewModelPage() {
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
+                      aria-hidden="true"
                     >
                       <path
                         strokeLinecap="round"
@@ -172,7 +183,7 @@ export default function NewModelPage() {
                     </svg>
                   </div>
                 ) : (
-                  <div className="animate-spin rounded-full h-16 w-16 border-4 border-gray-200 border-t-blue-600 mx-auto mb-4" />
+                  <div className="animate-spin rounded-full h-16 w-16 border-4 border-gray-200 border-t-blue-600 mx-auto mb-4" aria-label="Loading" />
                 )}
                 <p className="text-gray-600 dark:text-gray-300">{progress}</p>
               </div>
@@ -182,7 +193,7 @@ export default function NewModelPage() {
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                 {/* Drag and Drop Area */}
                 <div
-                  className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                  className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                     dragActive
                       ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
                       : file
@@ -193,6 +204,16 @@ export default function NewModelPage() {
                   onDragLeave={handleDrag}
                   onDragOver={handleDrag}
                   onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      fileInputRef.current?.click();
+                    }
+                  }}
+                  tabIndex={0}
+                  role="button"
+                  aria-label="Upload ONNX file"
                 >
                   <input
                     ref={fileInputRef}
@@ -200,6 +221,7 @@ export default function NewModelPage() {
                     accept=".onnx"
                     onChange={handleFileSelect}
                     className="hidden"
+                    aria-hidden="true"
                   />
 
                   {file ? (
@@ -210,6 +232,7 @@ export default function NewModelPage() {
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
+                          aria-hidden="true"
                         >
                           <path
                             strokeLinecap="round"
@@ -223,7 +246,7 @@ export default function NewModelPage() {
                         {file.name}
                       </p>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {formatFileSize(file.size)}
+                        {formatBytes(file.size)}
                       </p>
                       <button
                         type="button"
@@ -241,6 +264,7 @@ export default function NewModelPage() {
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
+                          aria-hidden="true"
                         >
                           <path
                             strokeLinecap="round"

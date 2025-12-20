@@ -15,7 +15,7 @@ function getGithubCredentials() {
   if (!clientId || !clientSecret) {
     // During build, return placeholder values
     // NextAuth will fail at runtime if these are not set
-    if (process.env.NODE_ENV === "production" && !process.env.NEXTAUTH_SECRET) {
+    if (process.env.NODE_ENV === "production") {
       console.warn(
         "Warning: GitHub OAuth credentials not configured. " +
           "Set GITHUB_ID and GITHUB_SECRET in your environment."

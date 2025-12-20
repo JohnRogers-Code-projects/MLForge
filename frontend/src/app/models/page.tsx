@@ -7,42 +7,12 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { Header } from "@/components/Header";
+import { StatusBadge } from "@/components/StatusBadge";
 import { listModels, deleteModel } from "@/lib/models";
-import type { Model, ModelListResponse } from "@/types/api";
+import { formatBytes, formatDate } from "@/lib/utils";
+import type { ModelListResponse } from "@/types/api";
 
-function StatusBadge({ status }: { status: Model["status"] }) {
-  const colors: Record<Model["status"], string> = {
-    pending: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300",
-    uploaded: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-    validating: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
-    ready: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
-    error: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
-    archived: "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400",
-  };
-
-  return (
-    <span className={`px-2 py-1 text-xs font-medium rounded-full ${colors[status]}`}>
-      {status}
-    </span>
-  );
-}
-
-function formatBytes(bytes: number | null): string {
-  if (bytes === null) return "-";
-  if (bytes === 0) return "0 B";
-  const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-}
-
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
+const PAGE_SIZE = 10;
 
 export default function ModelsPage() {
   const [data, setData] = useState<ModelListResponse | null>(null);
@@ -50,20 +20,19 @@ export default function ModelsPage() {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [deleting, setDeleting] = useState<string | null>(null);
-  const pageSize = 10;
 
   const fetchModels = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const result = await listModels({ page, page_size: pageSize });
+      const result = await listModels({ page, page_size: PAGE_SIZE });
       setData(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load models");
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize]);
+  }, [page]);
 
   useEffect(() => {
     fetchModels();
@@ -77,7 +46,7 @@ export default function ModelsPage() {
       await deleteModel(id);
       await fetchModels();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to delete model");
+      setError(err instanceof Error ? err.message : "Failed to delete model");
     } finally {
       setDeleting(null);
     }
@@ -193,8 +162,8 @@ export default function ModelsPage() {
             {data.total_pages > 1 && (
               <div className="mt-6 flex justify-between items-center">
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Showing {(page - 1) * pageSize + 1} to{" "}
-                  {Math.min(page * pageSize, data.total)} of {data.total} models
+                  Showing {(page - 1) * PAGE_SIZE + 1} to{" "}
+                  {Math.min(page * PAGE_SIZE, data.total)} of {data.total} models
                 </p>
                 <div className="flex gap-2">
                   <button

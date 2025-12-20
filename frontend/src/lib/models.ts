@@ -3,6 +3,7 @@
  */
 
 import { api } from "./api";
+import { config } from "./config";
 import type { Model, ModelListResponse } from "@/types/api";
 
 export interface CreateModelRequest {
@@ -62,7 +63,7 @@ export async function uploadModelFile(id: string, file: File): Promise<Model> {
   formData.append("file", file);
 
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/models/${id}/upload`,
+    `${config.api.baseUrl}${config.api.prefix}/models/${id}/upload`,
     {
       method: "POST",
       body: formData,
