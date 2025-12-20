@@ -5,9 +5,11 @@
  * and automatic JSON parsing.
  */
 
-// API configuration from environment
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const API_PREFIX = "/api/v1";
+import { config } from "./config";
+
+// API configuration from central config
+const API_BASE_URL = config.api.baseUrl;
+const API_PREFIX = config.api.prefix;
 
 /**
  * API error with status code and message.

@@ -5,7 +5,7 @@
  */
 
 // Model types
-export type ModelStatus = "pending" | "uploaded" | "ready" | "error" | "archived";
+export type ModelStatus = "pending" | "uploaded" | "validating" | "ready" | "error" | "archived";
 
 export interface Model {
   id: string;
@@ -14,10 +14,10 @@ export interface Model {
   description: string | null;
   status: ModelStatus;
   file_path: string | null;
-  file_size: number | null;
+  file_size_bytes: number | null;
   file_hash: string | null;
-  input_schema: Record<string, unknown> | null;
-  output_schema: Record<string, unknown> | null;
+  input_schema: Record<string, unknown>[] | null;
+  output_schema: Record<string, unknown>[] | null;
   model_metadata: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
@@ -96,6 +96,10 @@ export interface HealthResponse {
   status: string;
   version: string;
   environment: string;
+  timestamp: string;
+  database: string;
+  redis: string;
+  celery: string;
 }
 
 // Cache metrics types

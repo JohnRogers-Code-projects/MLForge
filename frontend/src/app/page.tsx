@@ -1,3 +1,5 @@
+import { config } from "@/lib/config";
+
 export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
@@ -43,7 +45,7 @@ export default function Home() {
           <div className="mt-12">
             <p className="text-sm text-gray-400 dark:text-gray-500">
               API: <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs">
-                {process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}
+                {config.api.baseUrl}
               </code>
             </p>
           </div>
