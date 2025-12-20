@@ -216,11 +216,13 @@ backend/
 
 ### Phase 5: Next.js Dashboard
 
-#### PR 5.1: Project Setup
-- [ ] Initialize Next.js 14 with App Router
-- [ ] Configure TypeScript, ESLint, Tailwind
-- [ ] Set up API client with fetch wrapper
-- [ ] Add environment configuration
+#### PR 5.1: Project Setup ✅ COMPLETE
+- [x] Initialize Next.js 14 with App Router
+- [x] Configure TypeScript, ESLint, Tailwind
+- [x] Set up API client with fetch wrapper (`src/lib/api.ts`)
+- [x] Add environment configuration (`.env.example`, `src/lib/config.ts`)
+- [x] Add TypeScript types for API responses (`src/types/api.ts`)
+- [x] Create placeholder home page with ModelForge branding
 
 #### PR 5.2: Authentication
 - [ ] Integrate NextAuth.js
@@ -337,9 +339,10 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - **Phase 2**: ✅ COMPLETE
 - **Phase 3**: ✅ COMPLETE
 - **Phase 4**: ✅ COMPLETE
-- **Next Phase**: Phase 5 (Next.js Dashboard)
-- **Last Updated**: 2025-12-19
-- **Test Count**: 253 tests passing
+- **Phase 5**: IN PROGRESS (PR 5.1 complete)
+- **Next PR**: PR 5.2 (Authentication)
+- **Last Updated**: 2025-12-20
+- **Test Count**: 253 backend tests passing
 
 ## Session Notes
 - 2025-12-15: Merged Copilot onboarding PRs (#10, #6), closed duplicate (#9), removed blocking ruleset
@@ -358,3 +361,4 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - 2025-12-19: PR 4.2 merged after 3 rounds of Copilot review (error handling, path traversal security, rollback fixes)
 - 2025-12-19: Completed PR 4.3 - Job Results Endpoint (GET /jobs/{id}/result, wait parameter, error_traceback exposure)
 - 2025-12-19: Completed PR 4.4 - Job Management & Cleanup (cancel revokes task, DELETE endpoint, periodic cleanup task)
+- 2025-12-20: Started Phase 5, completed PR 5.1 - Next.js Dashboard Setup (Next.js 14, TypeScript, Tailwind, API client)
