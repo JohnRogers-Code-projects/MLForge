@@ -361,4 +361,4 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - 2025-12-19: PR 4.2 merged after 3 rounds of Copilot review (error handling, path traversal security, rollback fixes)
 - 2025-12-19: Completed PR 4.3 - Job Results Endpoint (GET /jobs/{id}/result, wait parameter, error_traceback exposure)
 - 2025-12-19: Completed PR 4.4 - Job Management & Cleanup (cancel revokes task, DELETE endpoint, periodic cleanup task)
-- 2025-12-20: Started Phase 5, completed PR 5.1 - Next.js Dashboard Setup (Next.js 14, TypeScript, Tailwind, API client)
+- 2025-12-20: Started Phase 5, completed PR 5.1 - Next.js Dashboard Setup (Next.js 14, TypeScript, Tailwind, API client, typed API types matching backend schemas)
