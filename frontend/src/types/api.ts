@@ -103,8 +103,8 @@ export interface Prediction {
   id: string;
   model_id: string;
   input_data: Record<string, unknown>;
-  output_data: Record<string, unknown>;
-  inference_time_ms: number;
+  output_data: Record<string, unknown> | null;
+  inference_time_ms: number | null;
   cached: boolean;
   created_at: string;
 }
