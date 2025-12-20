@@ -14,6 +14,7 @@ import { formatDateTime } from "@/lib/utils";
 import type { Model, Prediction, PredictionListResponse } from "@/types/api";
 
 const PAGE_SIZE = 20;
+const PREVIEW_ID_LENGTH = 8;
 
 export default function PredictionsHistoryPage() {
   const params = useParams();
@@ -59,9 +60,15 @@ export default function PredictionsHistoryPage() {
       "output_data",
     ];
 
-    // Escape CSV cell: handle quotes and newlines
-    const escapeCsvCell = (cell: string) =>
-      `"${cell.replace(/"/g, '""').replace(/\r\n|\n|\r/g, "\\n")}"`;
+    // Escape CSV cell: handle quotes, newlines, and potential CSV injection
+    const escapeCsvCell = (cell: string) => {
+      let value = cell.replace(/"/g, '""').replace(/\r\n|\n|\r/g, "\\n");
+      // Prevent CSV injection by neutralizing values that look like formulas
+      if (/^[=+\-@]/.test(value)) {
+        value = "'" + value;
+      }
+      return `"${value}"`;
+    };
 
     const rows = data.items.map((p) => [
       p.id,
@@ -84,13 +91,16 @@ export default function PredictionsHistoryPage() {
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.href = url;
-    const safeName = sanitizeFilename(model?.name ?? id);
-    link.download = `predictions-${safeName}-${new Date().toISOString().split("T")[0]}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    try {
+      link.href = url;
+      const safeName = sanitizeFilename(model?.name ?? id);
+      link.download = `predictions-${safeName}-${new Date().toISOString().split("T")[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
   };
 
   return (
@@ -136,9 +146,9 @@ export default function PredictionsHistoryPage() {
             <button
               onClick={exportToCsv}
               className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              title="Exports current page only"
+              title={`Exports current page only (up to ${PAGE_SIZE} predictions)`}
             >
-              Export CSV
+              Export Page to CSV
             </button>
           )}
         </div>
@@ -182,7 +192,7 @@ export default function PredictionsHistoryPage() {
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="text-sm font-mono text-gray-900 dark:text-white">
-                          {prediction.id.slice(0, 8)}...
+                          {prediction.id.slice(0, PREVIEW_ID_LENGTH)}...
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
@@ -269,6 +279,7 @@ export default function PredictionsHistoryPage() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="modal-title"
+            tabIndex={-1}
             onKeyDown={(e) => {
               if (e.key === "Escape") {
                 setSelectedPrediction(null);

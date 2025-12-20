@@ -12,13 +12,24 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { getModel } from "@/lib/models";
 import { createPrediction } from "@/lib/predictions";
 import { formatDateTime } from "@/lib/utils";
-import type { Model, Prediction } from "@/types/api";
+import type { Model, Prediction, TensorSchema } from "@/types/api";
+
+// Constants for UI configuration
+const JSON_INPUT_ROWS = 12;
 
 /**
  * Create a sample array based on tensor shape for input pre-population.
  *
  * This function guards against extremely large or deeply nested shapes
  * that could otherwise create huge arrays and freeze the browser.
+ *
+ * When any safety limit is exceeded (maximum depth, dimension size, or total
+ * number of elements), or when the shape is empty/invalid, this function
+ * returns a scalar sample value instead of a properly shaped array.
+ *
+ * @param shape Tensor shape, where null or non-positive dimensions are treated as 1.
+ * @param dtype ONNX-style data type string (e.g. "float", "int64") used to pick the sample value.
+ * @returns A nested array matching the (clamped) shape, or a scalar sample value when limits are exceeded.
  */
 function createSampleArray(shape: (number | null)[], dtype: string): unknown {
   const SAMPLE_VALUE = dtype.includes("int") ? 0 : 0.0;
@@ -45,9 +56,13 @@ function createSampleArray(shape: (number | null)[], dtype: string): unknown {
     return SAMPLE_VALUE;
   }
 
-  // Enforce maximum total elements
+  // Enforce maximum total elements with overflow protection
   let totalElements = 1;
   for (const dim of normalizedShape) {
+    // Check for potential overflow before multiplication
+    if (totalElements > MAX_TOTAL_ELEMENTS / dim) {
+      return SAMPLE_VALUE;
+    }
     totalElements *= dim;
     if (totalElements > MAX_TOTAL_ELEMENTS) {
       return SAMPLE_VALUE;
@@ -72,6 +87,19 @@ function createSampleArray(shape: (number | null)[], dtype: string): unknown {
   };
 
   return buildArray(normalizedShape);
+}
+
+/**
+ * Type guard to check if a schema object matches TensorSchema structure.
+ */
+function isTensorSchema(schema: unknown): schema is TensorSchema {
+  if (typeof schema !== "object" || schema === null) return false;
+  const s = schema as Record<string, unknown>;
+  return (
+    typeof s.name === "string" &&
+    typeof s.dtype === "string" &&
+    Array.isArray(s.shape)
+  );
 }
 
 export default function PredictPage() {
@@ -103,9 +131,9 @@ export default function PredictPage() {
         if (data.input_schema && data.input_schema.length > 0) {
           const sampleInput: Record<string, unknown> = {};
           for (const schema of data.input_schema) {
-            const tensorSchema = schema as { name: string; dtype: string; shape: (number | null)[] };
-            // Create a sample array based on shape
-            sampleInput[tensorSchema.name] = createSampleArray(tensorSchema.shape, tensorSchema.dtype);
+            if (isTensorSchema(schema)) {
+              sampleInput[schema.name] = createSampleArray(schema.shape, schema.dtype);
+            }
           }
           setInputJson(JSON.stringify(sampleInput, null, 2));
         }
@@ -251,7 +279,7 @@ export default function PredictPage() {
                         id="input-json"
                         value={inputJson}
                         onChange={(e) => handleInputChange(e.target.value)}
-                        rows={12}
+                        rows={JSON_INPUT_ROWS}
                         className={`w-full px-3 py-2 font-mono text-sm border rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                           jsonError
                             ? "border-red-500 dark:border-red-500"
@@ -290,11 +318,11 @@ export default function PredictPage() {
                         </h3>
                         <div className="space-y-1">
                           {model.input_schema.map((schema, idx) => {
-                            const tensorSchema = schema as { name: string; dtype: string; shape: (number | null)[] };
+                            if (!isTensorSchema(schema)) return null;
                             return (
                               <div key={idx} className="text-xs font-mono text-gray-600 dark:text-gray-400">
-                                <span className="text-blue-600 dark:text-blue-400">{tensorSchema.name}</span>
-                                : {tensorSchema.dtype} [{tensorSchema.shape.map(d => d ?? "?").join(", ")}]
+                                <span className="text-blue-600 dark:text-blue-400">{schema.name}</span>
+                                : {schema.dtype} [{schema.shape.map(d => d ?? "?").join(", ")}]
                               </div>
                             );
                           })}
