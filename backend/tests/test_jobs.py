@@ -596,3 +596,266 @@ class TestJobResults:
         assert response.status_code == 200
         data = response.json()
         assert data["inference_time_ms"] == 42.5
+
+
+class TestJobCancellationWithRevoke:
+    """Tests for job cancellation with Celery task revocation."""
+
+    @pytest.mark.asyncio
+    async def test_cancel_queued_job_revokes_celery_task(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Test that cancelling a queued job revokes the Celery task."""
+        model_id = await setup_ready_model(client, valid_onnx_file, "cancel-revoke-model")
+
+        with patch("app.api.jobs.run_inference_task") as mock_task:
+            mock_task.delay.return_value.id = "mock-task-id-to-revoke"
+            job_response = await client.post(
+                "/api/v1/jobs",
+                json={"model_id": model_id, "input_data": {"input": [[1.0] * 10]}},
+            )
+        job_id = job_response.json()["id"]
+        assert job_response.json()["celery_task_id"] == "mock-task-id-to-revoke"
+
+        # Cancel the job - should revoke the Celery task
+        with patch("app.api.jobs.celery_app") as mock_celery:
+            response = await client.post(f"/api/v1/jobs/{job_id}/cancel")
+            assert response.status_code == 200
+            # Verify revoke was called with terminate=True
+            mock_celery.control.revoke.assert_called_once_with(
+                "mock-task-id-to-revoke", terminate=True
+            )
+
+    @pytest.mark.asyncio
+    async def test_cancel_running_job(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Test cancelling a job in RUNNING status."""
+        model_id = await setup_ready_model(client, valid_onnx_file, "cancel-running-model")
+
+        with patch("app.api.jobs.run_inference_task") as mock_task:
+            mock_task.delay.return_value.id = "mock-task-id"
+            job_response = await client.post(
+                "/api/v1/jobs",
+                json={"model_id": model_id, "input_data": {"input": [[1.0] * 10]}},
+            )
+        job_id = job_response.json()["id"]
+
+        # Update job to RUNNING status
+        from app.models.job import JobStatus
+        from app.crud import job_crud
+        from app.database import get_db
+
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            job = await job_crud.get(session, job_id)
+            await job_crud.update(
+                session,
+                db_obj=job,
+                obj_in={"status": JobStatus.RUNNING},
+            )
+            await session.commit()
+            break
+
+        # Cancel the running job
+        with patch("app.api.jobs.celery_app"):
+            response = await client.post(f"/api/v1/jobs/{job_id}/cancel")
+            assert response.status_code == 200
+            assert response.json()["status"] == "cancelled"
+
+    @pytest.mark.asyncio
+    async def test_cancel_completed_job_fails(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Test that cancelling a completed job returns 400."""
+        model_id = await setup_ready_model(client, valid_onnx_file, "cancel-completed-model")
+
+        with patch("app.api.jobs.run_inference_task") as mock_task:
+            mock_task.delay.return_value.id = "mock-task-id"
+            job_response = await client.post(
+                "/api/v1/jobs",
+                json={"model_id": model_id, "input_data": {"input": [[1.0] * 10]}},
+            )
+        job_id = job_response.json()["id"]
+
+        # Update job to COMPLETED status
+        from app.models.job import JobStatus
+        from app.crud import job_crud
+        from app.database import get_db
+
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            job = await job_crud.get(session, job_id)
+            await job_crud.update(
+                session,
+                db_obj=job,
+                obj_in={"status": JobStatus.COMPLETED},
+            )
+            await session.commit()
+            break
+
+        # Try to cancel - should fail
+        response = await client.post(f"/api/v1/jobs/{job_id}/cancel")
+        assert response.status_code == 400
+        assert "Cannot cancel job" in response.json()["detail"]
+
+
+class TestJobDeletion:
+    """Tests for job deletion endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_delete_completed_job(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Test deleting a completed job."""
+        model_id = await setup_ready_model(client, valid_onnx_file, "delete-completed-model")
+
+        with patch("app.api.jobs.run_inference_task") as mock_task:
+            mock_task.delay.return_value.id = "mock-task-id"
+            job_response = await client.post(
+                "/api/v1/jobs",
+                json={"model_id": model_id, "input_data": {"input": [[1.0] * 10]}},
+            )
+        job_id = job_response.json()["id"]
+
+        # Update job to COMPLETED status
+        from app.models.job import JobStatus
+        from app.crud import job_crud
+        from app.database import get_db
+
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            job = await job_crud.get(session, job_id)
+            await job_crud.update(
+                session,
+                db_obj=job,
+                obj_in={"status": JobStatus.COMPLETED},
+            )
+            await session.commit()
+            break
+
+        # Delete the job
+        response = await client.delete(f"/api/v1/jobs/{job_id}")
+        assert response.status_code == 204
+
+        # Verify job is gone
+        get_response = await client.get(f"/api/v1/jobs/{job_id}")
+        assert get_response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_delete_failed_job(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Test deleting a failed job."""
+        model_id = await setup_ready_model(client, valid_onnx_file, "delete-failed-model")
+
+        with patch("app.api.jobs.run_inference_task") as mock_task:
+            mock_task.delay.return_value.id = "mock-task-id"
+            job_response = await client.post(
+                "/api/v1/jobs",
+                json={"model_id": model_id, "input_data": {"input": [[1.0] * 10]}},
+            )
+        job_id = job_response.json()["id"]
+
+        # Update job to FAILED status
+        from app.models.job import JobStatus
+        from app.crud import job_crud
+        from app.database import get_db
+
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            job = await job_crud.get(session, job_id)
+            await job_crud.update(
+                session,
+                db_obj=job,
+                obj_in={"status": JobStatus.FAILED, "error_message": "Test failure"},
+            )
+            await session.commit()
+            break
+
+        # Delete the job
+        response = await client.delete(f"/api/v1/jobs/{job_id}")
+        assert response.status_code == 204
+
+    @pytest.mark.asyncio
+    async def test_delete_cancelled_job(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Test deleting a cancelled job."""
+        model_id = await setup_ready_model(client, valid_onnx_file, "delete-cancelled-model")
+
+        with patch("app.api.jobs.run_inference_task") as mock_task:
+            mock_task.delay.return_value.id = "mock-task-id"
+            job_response = await client.post(
+                "/api/v1/jobs",
+                json={"model_id": model_id, "input_data": {"input": [[1.0] * 10]}},
+            )
+        job_id = job_response.json()["id"]
+
+        # Cancel the job
+        with patch("app.api.jobs.celery_app"):
+            await client.post(f"/api/v1/jobs/{job_id}/cancel")
+
+        # Delete the job
+        response = await client.delete(f"/api/v1/jobs/{job_id}")
+        assert response.status_code == 204
+
+    @pytest.mark.asyncio
+    async def test_delete_running_job_fails(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Test that deleting a running job returns 400."""
+        model_id = await setup_ready_model(client, valid_onnx_file, "delete-running-model")
+
+        with patch("app.api.jobs.run_inference_task") as mock_task:
+            mock_task.delay.return_value.id = "mock-task-id"
+            job_response = await client.post(
+                "/api/v1/jobs",
+                json={"model_id": model_id, "input_data": {"input": [[1.0] * 10]}},
+            )
+        job_id = job_response.json()["id"]
+
+        # Update job to RUNNING status
+        from app.models.job import JobStatus
+        from app.crud import job_crud
+        from app.database import get_db
+
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            job = await job_crud.get(session, job_id)
+            await job_crud.update(
+                session,
+                db_obj=job,
+                obj_in={"status": JobStatus.RUNNING},
+            )
+            await session.commit()
+            break
+
+        # Try to delete - should fail
+        response = await client.delete(f"/api/v1/jobs/{job_id}")
+        assert response.status_code == 400
+        assert "Cannot delete job" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_delete_queued_job_fails(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Test that deleting a queued job returns 400."""
+        model_id = await setup_ready_model(client, valid_onnx_file, "delete-queued-model")
+
+        with patch("app.api.jobs.run_inference_task") as mock_task:
+            mock_task.delay.return_value.id = "mock-task-id"
+            job_response = await client.post(
+                "/api/v1/jobs",
+                json={"model_id": model_id, "input_data": {"input": [[1.0] * 10]}},
+            )
+        job_id = job_response.json()["id"]
+        assert job_response.json()["status"] == "queued"
+
+        # Try to delete - should fail
+        response = await client.delete(f"/api/v1/jobs/{job_id}")
+        assert response.status_code == 400
+        assert "Cancel it first" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_delete_nonexistent_job(self, client: AsyncClient):
+        """Test deleting a nonexistent job returns 404."""
+        response = await client.delete(
+            "/api/v1/jobs/00000000-0000-0000-0000-000000000000"
+        )
+        assert response.status_code == 404

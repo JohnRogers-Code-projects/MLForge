@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.responses import JSONResponse
 
 from app.api.deps import DBSession
+from app.celery import celery_app
 from app.crud import job_crud, model_crud
 from app.models.job import JobStatus
 from app.models.ml_model import ModelStatus
@@ -217,7 +218,11 @@ async def cancel_job(
     job_id: str,
     db: DBSession,
 ) -> JobResponse:
-    """Cancel a pending or queued job."""
+    """Cancel a pending, queued, or running job.
+
+    For queued/running jobs, this will also revoke the Celery task to stop
+    execution. The task will be terminated if currently running.
+    """
     job = await job_crud.get(db, job_id)
     if not job:
         raise HTTPException(
@@ -225,11 +230,22 @@ async def cancel_job(
             detail=f"Job with ID {job_id} not found",
         )
 
-    if job.status not in (JobStatus.PENDING, JobStatus.QUEUED):
+    # Allow cancellation of PENDING, QUEUED, or RUNNING jobs
+    if job.status not in (JobStatus.PENDING, JobStatus.QUEUED, JobStatus.RUNNING):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Cannot cancel job in {job.status} status",
         )
+
+    # Revoke the Celery task if it exists
+    if job.celery_task_id:
+        try:
+            # terminate=True sends SIGTERM to running tasks
+            celery_app.control.revoke(job.celery_task_id, terminate=True)
+            logger.info(f"Revoked Celery task {job.celery_task_id} for job {job_id}")
+        except Exception as e:
+            # Log but don't fail - the job cancellation should still proceed
+            logger.warning(f"Failed to revoke Celery task {job.celery_task_id}: {e}")
 
     updated = await job_crud.update_status(
         db,
@@ -237,3 +253,31 @@ async def cancel_job(
         status=JobStatus.CANCELLED,
     )
     return JobResponse.model_validate(updated)
+
+
+@router.delete("/{job_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_job(
+    job_id: str,
+    db: DBSession,
+) -> None:
+    """Delete a job and its associated data.
+
+    Only completed, failed, or cancelled jobs can be deleted.
+    Running or queued jobs must be cancelled first.
+    """
+    job = await job_crud.get(db, job_id)
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Job with ID {job_id} not found",
+        )
+
+    # Only allow deletion of terminal state jobs
+    if job.status not in _TERMINAL_STATUSES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot delete job in {job.status} status. Cancel it first.",
+        )
+
+    await job_crud.delete(db, id=job_id)
+    logger.info(f"Deleted job {job_id}")
