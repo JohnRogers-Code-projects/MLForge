@@ -16,24 +16,62 @@ import type { Model, Prediction } from "@/types/api";
 
 /**
  * Create a sample array based on tensor shape for input pre-population.
+ *
+ * This function guards against extremely large or deeply nested shapes
+ * that could otherwise create huge arrays and freeze the browser.
  */
 function createSampleArray(shape: (number | null)[], dtype: string): unknown {
+  const SAMPLE_VALUE = dtype.includes("int") ? 0 : 0.0;
+
+  // Safety limits to avoid creating excessively large arrays
+  const MAX_DEPTH = 6;
+  const MAX_DIM_SIZE = 100;
+  const MAX_TOTAL_ELEMENTS = 10000;
+
   if (shape.length === 0) {
-    return dtype.includes("int") ? 0 : 0.0;
+    return SAMPLE_VALUE;
   }
 
-  const dim = shape[0] ?? 1; // Use 1 for dynamic dimensions
-  const restShape = shape.slice(1);
+  // Normalize and clamp dimensions
+  const normalizedShape = shape.map((dim) => {
+    if (dim == null || !Number.isFinite(dim) || dim <= 0) {
+      return 1;
+    }
+    return Math.min(Math.floor(dim), MAX_DIM_SIZE);
+  });
 
-  if (restShape.length === 0) {
-    // Base case: create array of values
-    return Array(dim).fill(dtype.includes("int") ? 0 : 0.0);
+  // Enforce maximum depth
+  if (normalizedShape.length > MAX_DEPTH) {
+    return SAMPLE_VALUE;
   }
 
-  // Recursive case: create array of arrays
-  return Array(dim)
-    .fill(null)
-    .map(() => createSampleArray(restShape, dtype));
+  // Enforce maximum total elements
+  let totalElements = 1;
+  for (const dim of normalizedShape) {
+    totalElements *= dim;
+    if (totalElements > MAX_TOTAL_ELEMENTS) {
+      return SAMPLE_VALUE;
+    }
+  }
+
+  // Build the sample array
+  const buildArray = (dims: number[]): unknown => {
+    if (dims.length === 0) {
+      return SAMPLE_VALUE;
+    }
+
+    const [dim, ...rest] = dims;
+
+    if (rest.length === 0) {
+      return Array(dim).fill(SAMPLE_VALUE);
+    }
+
+    return Array(dim)
+      .fill(null)
+      .map(() => buildArray(rest));
+  };
+
+  return buildArray(normalizedShape);
 }
 
 export default function PredictPage() {
@@ -252,11 +290,11 @@ export default function PredictPage() {
                         </h3>
                         <div className="space-y-1">
                           {model.input_schema.map((schema, idx) => {
-                            const s = schema as { name: string; dtype: string; shape: (number | null)[] };
+                            const tensorSchema = schema as { name: string; dtype: string; shape: (number | null)[] };
                             return (
                               <div key={idx} className="text-xs font-mono text-gray-600 dark:text-gray-400">
-                                <span className="text-blue-600 dark:text-blue-400">{s.name}</span>
-                                : {s.dtype} [{s.shape.map(d => d ?? "?").join(", ")}]
+                                <span className="text-blue-600 dark:text-blue-400">{tensorSchema.name}</span>
+                                : {tensorSchema.dtype} [{tensorSchema.shape.map(d => d ?? "?").join(", ")}]
                               </div>
                             );
                           })}
@@ -289,7 +327,11 @@ export default function PredictPage() {
               <div className="p-6">
                 {submitting ? (
                   <div className="flex justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-200 border-t-green-600" />
+                    <div
+                      className="animate-spin rounded-full h-8 w-8 border-2 border-gray-200 border-t-green-600"
+                      role="status"
+                      aria-label="Running prediction"
+                    />
                   </div>
                 ) : result ? (
                   <div className="space-y-4">

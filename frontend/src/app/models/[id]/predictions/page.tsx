@@ -59,6 +59,10 @@ export default function PredictionsHistoryPage() {
       "output_data",
     ];
 
+    // Escape CSV cell: handle quotes and newlines
+    const escapeCsvCell = (cell: string) =>
+      `"${cell.replace(/"/g, '""').replace(/\r\n|\n|\r/g, "\\n")}"`;
+
     const rows = data.items.map((p) => [
       p.id,
       p.created_at,
@@ -70,16 +74,19 @@ export default function PredictionsHistoryPage() {
 
     const csvContent = [
       headers.join(","),
-      ...rows.map((row) =>
-        row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(",")
-      ),
+      ...rows.map((row) => row.map((cell) => escapeCsvCell(cell)).join(",")),
     ].join("\n");
+
+    // Sanitize filename: remove/replace filesystem-unsafe characters
+    const sanitizeFilename = (name: string) =>
+      name.replace(/[/\\:*?"<>|]/g, "-").replace(/\s+/g, "_");
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `predictions-${model?.name ?? id}-${new Date().toISOString().split("T")[0]}.csv`;
+    const safeName = sanitizeFilename(model?.name ?? id);
+    link.download = `predictions-${safeName}-${new Date().toISOString().split("T")[0]}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -129,6 +136,7 @@ export default function PredictionsHistoryPage() {
             <button
               onClick={exportToCsv}
               className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              title="Exports current page only"
             >
               Export CSV
             </button>
@@ -258,13 +266,21 @@ export default function PredictionsHistoryPage() {
           <div
             className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
             onClick={() => setSelectedPrediction(null)}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="modal-title"
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                setSelectedPrediction(null);
+              }
+            }}
           >
             <div
               className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+                <h2 id="modal-title" className="text-lg font-bold text-gray-900 dark:text-white">
                   Prediction Details
                 </h2>
                 <button
