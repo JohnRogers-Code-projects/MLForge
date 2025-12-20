@@ -241,17 +241,17 @@ backend/
 - [x] Shared Header component with navigation
 - [x] Model API service functions
 
-#### PR 5.4: Prediction Interface
-- [ ] Prediction form with JSON input
-- [ ] Prediction history table
-- [ ] Prediction detail view
-- [ ] Export predictions as CSV
+#### PR 5.4: Prediction Interface ✅ COMPLETE
+- [x] Prediction form with JSON input
+- [x] Prediction history table
+- [x] Prediction detail view
+- [x] Export predictions as CSV
 
-#### PR 5.5: Job Monitoring
-- [ ] Job queue dashboard
-- [ ] Real-time status updates (polling or SSE)
-- [ ] Job cancellation UI
-- [ ] Job logs/error display
+#### PR 5.5: Job Monitoring ✅ COMPLETE
+- [x] Job queue dashboard
+- [x] Real-time status updates (polling)
+- [x] Job cancellation UI
+- [x] Job logs/error display
 
 ---
 
@@ -348,8 +348,8 @@ GITHUB_SECRET=your-github-client-secret
 - **Phase 2**: ✅ COMPLETE
 - **Phase 3**: ✅ COMPLETE
 - **Phase 4**: ✅ COMPLETE
-- **Phase 5**: IN PROGRESS (PR 5.1, 5.2, 5.3 complete)
-- **Next PR**: PR 5.4 (Prediction Interface)
+- **Phase 5**: ✅ COMPLETE
+- **Next Phase**: Phase 6 (Testing & Documentation)
 - **Last Updated**: 2025-12-20
 - **Test Count**: 253 backend tests passing
 
@@ -374,3 +374,5 @@ GITHUB_SECRET=your-github-client-secret
 - 2025-12-20: Completed PR 5.2 - Authentication (NextAuth.js with GitHub OAuth, login page, route protection via middleware, SessionProvider, auth-aware home page)
 - 2025-12-20: Completed PR 5.3 - Model Management UI (models list with pagination, detail page with metadata, drag-and-drop upload, delete/archive/validate actions)
 - 2025-12-20: Merged PR #29 - Fixed type definitions for upload/validate responses, case-insensitive extension check
+- 2025-12-20: Completed PR 5.4 - Prediction Interface (prediction form with JSON input/schema hints, prediction history table with pagination, detail modal, CSV export with security measures)
+- 2025-12-20: Completed PR 5.5 - Job Monitoring (job queue dashboard, status filtering, 5-second polling for real-time updates, cancel/delete actions, detail modal with error tracebacks)
