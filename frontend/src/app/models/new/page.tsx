@@ -43,12 +43,12 @@ export default function NewModelPage() {
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const droppedFile = e.dataTransfer.files[0];
-      if (droppedFile.name.endsWith(".onnx")) {
+      if (droppedFile.name.toLowerCase().endsWith(".onnx")) {
         setFile(droppedFile);
         setError(null);
         // Auto-fill name from filename if empty
         if (!name) {
-          setName(droppedFile.name.replace(".onnx", ""));
+          setName(droppedFile.name.replace(/\.onnx$/i, ""));
         }
       } else {
         setError("Please upload an .onnx file");
@@ -59,11 +59,11 @@ export default function NewModelPage() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
-      if (selectedFile.name.endsWith(".onnx")) {
+      if (selectedFile.name.toLowerCase().endsWith(".onnx")) {
         setFile(selectedFile);
         setError(null);
         if (!name) {
-          setName(selectedFile.name.replace(".onnx", ""));
+          setName(selectedFile.name.replace(/\.onnx$/i, ""));
         }
       } else {
         setError("Please upload an .onnx file");

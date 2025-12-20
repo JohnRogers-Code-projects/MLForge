@@ -31,6 +31,32 @@ export interface ModelListResponse {
   total_pages: number;
 }
 
+export interface ModelUploadResponse {
+  id: string;
+  file_path: string;
+  file_size_bytes: number;
+  file_hash: string;
+  status: ModelStatus;
+  message: string;
+}
+
+export interface TensorSchema {
+  name: string;
+  dtype: string;
+  shape: (number | null)[];
+}
+
+export interface ModelValidateResponse {
+  id: string;
+  valid: boolean;
+  status: ModelStatus;
+  input_schema: TensorSchema[] | null;
+  output_schema: TensorSchema[] | null;
+  model_metadata: Record<string, unknown> | null;
+  error_message: string | null;
+  message: string;
+}
+
 // Job types
 export type JobStatus = "pending" | "queued" | "running" | "completed" | "failed" | "cancelled";
 export type JobPriority = "low" | "normal" | "high";

@@ -4,7 +4,7 @@
 
 import { api } from "./api";
 import { config } from "./config";
-import type { Model, ModelListResponse } from "@/types/api";
+import type { Model, ModelListResponse, ModelUploadResponse, ModelValidateResponse } from "@/types/api";
 
 export interface CreateModelRequest {
   name: string;
@@ -58,7 +58,7 @@ export async function deleteModel(id: string): Promise<void> {
 /**
  * Upload an ONNX file to a model.
  */
-export async function uploadModelFile(id: string, file: File): Promise<Model> {
+export async function uploadModelFile(id: string, file: File): Promise<ModelUploadResponse> {
   const formData = new FormData();
   formData.append("file", file);
 
@@ -81,8 +81,8 @@ export async function uploadModelFile(id: string, file: File): Promise<Model> {
 /**
  * Validate an uploaded model.
  */
-export async function validateModel(id: string): Promise<Model> {
-  return api.post<Model>(`/models/${id}/validate`);
+export async function validateModel(id: string): Promise<ModelValidateResponse> {
+  return api.post<ModelValidateResponse>(`/models/${id}/validate`);
 }
 
 /**
