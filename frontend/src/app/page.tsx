@@ -21,14 +21,14 @@ function AuthButton() {
           {session.user.image && (
             <Image
               src={session.user.image}
-              alt=""
+              alt={session.user.name ?? "User avatar"}
               width={32}
               height={32}
               className="rounded-full"
             />
           )}
           <span className="text-sm text-gray-700 dark:text-gray-300">
-            {session.user.name}
+            {session.user.name || session.user.email || "User"}
           </span>
         </div>
         <button
@@ -80,7 +80,7 @@ export default function Home() {
           {session && (
             <div className="mb-12">
               <p className="text-gray-600 dark:text-gray-300 mb-4">
-                Welcome back, {session.user.name}!
+                Welcome back, {session.user.name || session.user.email || "there"}!
               </p>
               <div className="flex justify-center gap-4">
                 <Link

@@ -8,11 +8,28 @@
 import type { NextAuthOptions } from "next-auth";
 import GithubProvider from "next-auth/providers/github";
 
+const githubClientId = process.env.GITHUB_ID;
+const githubClientSecret = process.env.GITHUB_SECRET;
+
+if (!githubClientId) {
+  throw new Error(
+    "Missing environment variable GITHUB_ID for GitHub OAuth. " +
+      "Set GITHUB_ID in your environment (e.g. .env.local) to configure authentication."
+  );
+}
+
+if (!githubClientSecret) {
+  throw new Error(
+    "Missing environment variable GITHUB_SECRET for GitHub OAuth. " +
+      "Set GITHUB_SECRET in your environment (e.g. .env.local) to configure authentication."
+  );
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     GithubProvider({
-      clientId: process.env.GITHUB_ID ?? "",
-      clientSecret: process.env.GITHUB_SECRET ?? "",
+      clientId: githubClientId,
+      clientSecret: githubClientSecret,
     }),
   ],
   pages: {
