@@ -60,7 +60,12 @@ export default function ModelDetailPage() {
     try {
       setActionLoading("validate");
       setError(null);
-      const updated = await validateModel(model.id);
+      const result = await validateModel(model.id);
+      if (!result.valid && result.error_message) {
+        setError(`Validation failed: ${result.error_message}`);
+      }
+      // Refetch the full model to get all updated fields
+      const updated = await getModel(model.id);
       setModel(updated);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to validate model");
