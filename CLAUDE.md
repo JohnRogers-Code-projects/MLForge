@@ -224,11 +224,14 @@ backend/
 - [x] Add TypeScript types for API responses (`src/types/api.ts`)
 - [x] Create placeholder home page with ModelForge branding
 
-#### PR 5.2: Authentication
-- [ ] Integrate NextAuth.js
-- [ ] Add login/logout pages
-- [ ] Protect routes with middleware
-- [ ] Add user context provider
+#### PR 5.2: Authentication ✅ COMPLETE
+- [x] Integrate NextAuth.js with GitHub OAuth provider
+- [x] Add login page with GitHub sign-in
+- [x] Add auth-aware home page with sign-out
+- [x] Protect routes with middleware (models, jobs, predictions, dashboard, settings)
+- [x] Add SessionProvider to app layout
+- [x] Type augmentations for NextAuth session
+- [x] Configure Next.js for external avatar images
 
 #### PR 5.3: Model Management UI
 - [ ] Model list page with pagination
@@ -330,6 +333,10 @@ ENVIRONMENT=development
 
 # Frontend
 NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXTAUTH_SECRET=your-nextauth-secret
+NEXTAUTH_URL=http://localhost:3000
+GITHUB_ID=your-github-client-id
+GITHUB_SECRET=your-github-client-secret
 ```
 
 ---
@@ -339,8 +346,8 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - **Phase 2**: ✅ COMPLETE
 - **Phase 3**: ✅ COMPLETE
 - **Phase 4**: ✅ COMPLETE
-- **Phase 5**: IN PROGRESS (PR 5.1 complete)
-- **Next PR**: PR 5.2 (Authentication)
+- **Phase 5**: IN PROGRESS (PR 5.1, 5.2 complete)
+- **Next PR**: PR 5.3 (Model Management UI)
 - **Last Updated**: 2025-12-20
 - **Test Count**: 253 backend tests passing
 
@@ -362,3 +369,4 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 - 2025-12-19: Completed PR 4.3 - Job Results Endpoint (GET /jobs/{id}/result, wait parameter, error_traceback exposure)
 - 2025-12-19: Completed PR 4.4 - Job Management & Cleanup (cancel revokes task, DELETE endpoint, periodic cleanup task)
 - 2025-12-20: Started Phase 5, completed PR 5.1 - Next.js Dashboard Setup (Next.js 14, TypeScript, Tailwind, API client, typed API types matching backend schemas)
+- 2025-12-20: Completed PR 5.2 - Authentication (NextAuth.js with GitHub OAuth, login page, route protection via middleware, SessionProvider, auth-aware home page)
