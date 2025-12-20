@@ -373,3 +373,4 @@ GITHUB_SECRET=your-github-client-secret
 - 2025-12-20: Started Phase 5, completed PR 5.1 - Next.js Dashboard Setup (Next.js 14, TypeScript, Tailwind, API client, typed API types matching backend schemas)
 - 2025-12-20: Completed PR 5.2 - Authentication (NextAuth.js with GitHub OAuth, login page, route protection via middleware, SessionProvider, auth-aware home page)
 - 2025-12-20: Completed PR 5.3 - Model Management UI (models list with pagination, detail page with metadata, drag-and-drop upload, delete/archive/validate actions)
+- 2025-12-20: Merged PR #29 - Fixed type definitions for upload/validate responses, case-insensitive extension check
