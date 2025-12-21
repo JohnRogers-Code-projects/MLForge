@@ -376,3 +376,32 @@ GITHUB_SECRET=your-github-client-secret
 - 2025-12-20: Merged PR #29 - Fixed type definitions for upload/validate responses, case-insensitive extension check
 - 2025-12-20: Completed PR 5.4 - Prediction Interface (prediction form with JSON input/schema hints, prediction history table with pagination, detail modal, CSV export with security measures)
 - 2025-12-20: Completed PR 5.5 - Job Monitoring (job queue dashboard, status filtering, 5-second polling for real-time updates, cancel/delete actions, detail modal with error tracebacks)
+- 2025-12-20: Started Phase 6 - Created branch `feature/pr-6.1-test-coverage`
+
+## Next Steps for PR 6.1 (Test Coverage Expansion)
+
+**Environment Note**: Local Python is 3.14 which is too new for onnxruntime. Tests MUST be run via Docker:
+```bash
+# Start required services
+docker-compose up -d db redis
+
+# Run tests with coverage in Docker container
+docker-compose run --rm -e DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/modelforge \
+  -e REDIS_URL=redis://redis:6379/0 \
+  api python -m pytest --cov=app --cov-report=term-missing -q
+```
+
+**Tasks for PR 6.1**:
+1. Run coverage report to identify gaps (target: 90%+ coverage)
+2. Review coverage output and identify files/functions below threshold
+3. Add unit tests for uncovered code paths:
+   - Focus on error handling paths
+   - Edge cases in validation logic
+   - Cache miss/hit scenarios
+   - Job state transitions
+4. Add load/stress tests for inference endpoint:
+   - Concurrent prediction requests
+   - Large input data handling
+   - Model loading under load
+
+**Current test count**: 253 backend tests passing
