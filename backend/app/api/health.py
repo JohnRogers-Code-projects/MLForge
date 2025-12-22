@@ -177,6 +177,7 @@ async def metrics(
     try:
         await db.execute(text("SELECT 1"))
     except Exception:
+        logger.warning("Database connectivity check failed in /metrics endpoint", exc_info=True)
         db_connected = False
 
     metrics_data = {

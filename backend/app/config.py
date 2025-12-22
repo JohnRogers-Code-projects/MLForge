@@ -71,6 +71,9 @@ class Settings(BaseSettings):
     job_retention_days: int = 30  # Keep completed/failed jobs for 30 days
     job_max_retries: int = 3  # Max retry attempts for failed tasks
 
+    # Observability
+    sentry_dsn: Optional[str] = None  # Set to enable Sentry error tracking
+
     @property
     def max_model_size_bytes(self) -> int:
         """Max model size in bytes."""

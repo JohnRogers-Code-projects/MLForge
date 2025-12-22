@@ -1,6 +1,5 @@
 """FastAPI application entry point."""
 
-import os
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -19,15 +18,14 @@ setup_logging()
 logger = get_logger(__name__)
 
 # Optional Sentry integration for error alerting
-SENTRY_DSN = os.getenv("SENTRY_DSN")
-if SENTRY_DSN:
+if settings.sentry_dsn:
     try:
         import sentry_sdk
         from sentry_sdk.integrations.fastapi import FastApiIntegration
         from sentry_sdk.integrations.celery import CeleryIntegration
 
         sentry_sdk.init(
-            dsn=SENTRY_DSN,
+            dsn=settings.sentry_dsn,
             environment=settings.environment,
             release=settings.app_version,
             traces_sample_rate=0.1,  # Sample 10% of requests for performance monitoring
@@ -38,7 +36,9 @@ if SENTRY_DSN:
         )
         logger.info("Sentry error tracking initialized")
     except ImportError:
-        logger.warning("sentry-sdk not installed, error alerting disabled")
+        logger.error(
+            "SENTRY_DSN is set but sentry-sdk is not installed; error alerting disabled"
+        )
 
 
 # OpenAPI tag metadata for better API documentation
@@ -135,7 +135,11 @@ at the API gateway level for production deployments.
     },
 )
 
-# CORS middleware
+# Request logging middleware (adds request ID and timing)
+# Note: Middleware is applied in reverse order, so this runs after CORS
+app.add_middleware(RequestLoggingMiddleware)
+
+# CORS middleware (outermost, runs first)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -143,9 +147,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Request logging middleware (adds request ID and timing)
-app.add_middleware(RequestLoggingMiddleware)
 
 # Include API routes
 app.include_router(api_router, prefix=settings.api_prefix)

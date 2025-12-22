@@ -388,7 +388,7 @@ class CacheService:
             hits = info.get("keyspace_hits", 0)
             misses = info.get("keyspace_misses", 0)
             total = hits + misses
-            hit_rate = (hits / total * 100) if total > 0 else 0
+            hit_rate = ((hits / total) * 100) if total > 0 else 0
 
             return {
                 "connected": True,

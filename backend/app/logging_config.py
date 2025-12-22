@@ -101,16 +101,3 @@ def setup_logging() -> None:
 def get_logger(name: str) -> logging.Logger:
     """Get a logger instance with the given name."""
     return logging.getLogger(name)
-
-
-class LoggerAdapter(logging.LoggerAdapter):
-    """Logger adapter that includes extra fields in structured logs."""
-
-    def process(
-        self, msg: str, kwargs: dict[str, Any]
-    ) -> tuple[str, dict[str, Any]]:
-        # Add extra fields to the record
-        extra = kwargs.get("extra", {})
-        extra["extra_fields"] = self.extra
-        kwargs["extra"] = extra
-        return msg, kwargs

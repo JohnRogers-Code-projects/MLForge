@@ -27,15 +27,19 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         # Record start time
         start_time = time.perf_counter()
 
-        # Log incoming request
+        # Get client IP (check X-Forwarded-For for proxied requests)
+        client_ip = request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+        if not client_ip:
+            client_ip = request.client.host if request.client else None
+
+        # Log incoming request (note: query params may contain sensitive data)
         logger.info(
             "Request started",
             extra={
                 "extra_fields": {
                     "method": request.method,
                     "path": request.url.path,
-                    "query": str(request.query_params),
-                    "client_ip": request.client.host if request.client else None,
+                    "client_ip": client_ip,
                 }
             },
         )
