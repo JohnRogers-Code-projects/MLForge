@@ -272,10 +272,16 @@ backend/
 - [x] Error path integration tests
 - [x] 20 new integration tests (309 → 329 tests)
 
-#### PR 6.3: E2E Tests
-- [ ] Set up Playwright
-- [ ] Test critical user flows
-- [ ] Add to CI pipeline
+#### PR 6.3: E2E Tests ✅ COMPLETE
+- [x] Set up Playwright with chromium/firefox/webkit projects
+- [x] Test critical user flows (16 E2E tests)
+  - Login page accessibility and error handling
+  - Protected route redirects (models, jobs, predictions)
+  - Home page rendering and navigation
+- [x] Add CI pipeline with GitHub Actions (.github/workflows/ci.yml)
+  - Backend tests with PostgreSQL and Redis services
+  - Frontend E2E tests with Playwright
+  - ESLint checks
 
 #### PR 6.4: Documentation
 - [ ] Complete OpenAPI descriptions
@@ -354,10 +360,10 @@ GITHUB_SECRET=your-github-client-secret
 - **Phase 3**: ✅ COMPLETE
 - **Phase 4**: ✅ COMPLETE
 - **Phase 5**: ✅ COMPLETE
-- **Phase 6**: In Progress (PR 6.1 ✅, PR 6.2 ✅)
-- **Next PR**: PR 6.3 (E2E Tests with Playwright)
+- **Phase 6**: In Progress (PR 6.1 ✅, PR 6.2 ✅, PR 6.3 ✅)
+- **Next PR**: PR 6.4 (Documentation)
 - **Last Updated**: 2025-12-22
-- **Test Count**: 329 backend tests passing
+- **Test Count**: 329 backend tests + 16 E2E tests
 - **Coverage**: 86%
 
 ## Session Notes
@@ -386,6 +392,7 @@ GITHUB_SECRET=your-github-client-secret
 - 2025-12-20: Started Phase 6 - Created branch `feature/pr-6.1-test-coverage`
 - 2025-12-22: Completed PR 6.1 - Test Coverage Expansion (56 new tests, 81% → 86% coverage, CRUD tests for all models)
 - 2025-12-22: Completed PR 6.2 - Integration Tests (20 new tests covering full API workflows, versioning, error paths, pagination)
+- 2025-12-22: Completed PR 6.3 - E2E Tests (Playwright setup, 16 E2E tests, GitHub Actions CI pipeline)
 
 ## Development Notes
 
@@ -400,7 +407,7 @@ docker-compose run --rm -e DATABASE_URL=postgresql+asyncpg://postgres:postgres@d
   api python -m pytest --cov=app --cov-report=term-missing -q
 ```
 
-**Next Steps for PR 6.3 (E2E Tests)**:
-1. Set up Playwright for end-to-end testing
-2. Test critical user flows (login, model upload, prediction)
-3. Add E2E tests to CI pipeline
+**Next Steps for PR 6.4 (Documentation)**:
+1. Complete OpenAPI descriptions for all endpoints
+2. Write deployment guide for Railway
+3. Add architecture decision records (ADRs)
