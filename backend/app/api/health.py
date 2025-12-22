@@ -1,5 +1,7 @@
 """Health check endpoints."""
 
+import os
+import time
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
@@ -10,8 +12,13 @@ from app.config import settings
 from app.database import get_db
 from app.schemas.common import CeleryHealthResponse, HealthResponse
 from app.services.cache import CacheService, get_cache_service
+from app.logging_config import get_logger
 
 router = APIRouter()
+logger = get_logger(__name__)
+
+# Track application start time for uptime calculation
+_start_time = time.time()
 
 
 def check_celery_health() -> dict:
@@ -141,3 +148,67 @@ async def readiness_check(db: AsyncSession = Depends(get_db)) -> dict:
 async def liveness_check() -> dict:
     """Kubernetes liveness probe."""
     return {"status": "alive"}
+
+
+@router.get("/metrics")
+async def metrics(
+    db: AsyncSession = Depends(get_db),
+    cache: CacheService = Depends(get_cache_service),
+) -> dict:
+    """Application metrics for monitoring dashboards.
+
+    Returns detailed metrics about the application state including:
+    - Uptime and process info
+    - Database connection status
+    - Cache hit/miss rates
+    - Celery worker status
+    """
+    # Calculate uptime
+    uptime_seconds = time.time() - _start_time
+
+    # Get cache metrics
+    cache_metrics = await cache.get_metrics()
+
+    # Get Celery status
+    celery_health = check_celery_health()
+
+    # Check database
+    db_connected = True
+    try:
+        await db.execute(text("SELECT 1"))
+    except Exception:
+        logger.warning("Database connectivity check failed in /metrics endpoint", exc_info=True)
+        db_connected = False
+
+    metrics_data = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "application": {
+            "name": settings.app_name,
+            "version": settings.app_version,
+            "environment": settings.environment,
+            "uptime_seconds": round(uptime_seconds, 2),
+            "pid": os.getpid(),
+        },
+        "database": {
+            "connected": db_connected,
+        },
+        "cache": {
+            "enabled": settings.redis_enabled,
+            "connected": cache_metrics.get("connected", False),
+            "hits": cache_metrics.get("hits", 0),
+            "misses": cache_metrics.get("misses", 0),
+            "hit_rate": cache_metrics.get("hit_rate", 0),
+        },
+        "celery": {
+            "status": celery_health.get("status"),
+            "broker_connected": celery_health.get("broker_connected", False),
+            "worker_count": len(celery_health.get("workers", {})),
+        },
+    }
+
+    logger.debug(
+        "Metrics collected",
+        extra={"extra_fields": {"uptime": uptime_seconds}},
+    )
+
+    return metrics_data
