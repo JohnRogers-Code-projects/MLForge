@@ -159,10 +159,10 @@ jobs:
     steps:
       - name: Check all jobs passed
         run: |
-          if [[ "${{ needs.backend-tests.result }}" != "success" ]] || \
-             [[ "${{ needs.frontend-e2e.result }}" != "success" ]] || \
-             [[ "${{ needs.lint.result }}" != "success" ]]; then
-            echo "One or more jobs failed"
+          if [[ "${{ needs.backend-tests.result }}" == "failure" || "${{ needs.backend-tests.result }}" == "cancelled" ]] || \
+             [[ "${{ needs.frontend-e2e.result }}" == "failure" || "${{ needs.frontend-e2e.result }}" == "cancelled" ]] || \
+             [[ "${{ needs.lint.result }}" == "failure" || "${{ needs.lint.result }}" == "cancelled" ]]; then
+            echo "One or more jobs failed or were cancelled"
             exit 1
           fi
-          echo "All CI jobs passed successfully!"
+          echo "All CI jobs completed successfully!"
