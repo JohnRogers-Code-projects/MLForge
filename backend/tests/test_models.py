@@ -473,3 +473,250 @@ async def test_validate_nonexistent_model(client: AsyncClient):
     """Test validation of nonexistent model."""
     response = await client.post("/api/v1/models/nonexistent-id/validate")
     assert response.status_code == 404
+
+
+# CRUD operation tests
+
+
+class TestModelCRUDOperations:
+    """Direct unit tests for MLModel CRUD operations."""
+
+    @pytest.mark.asyncio
+    async def test_get_by_name(self, client: AsyncClient):
+        """Test getting a model by name."""
+        from app.crud import model_crud
+        from app.database import get_db
+
+        # Create a model
+        await client.post(
+            "/api/v1/models",
+            json={"name": "crud-get-by-name", "version": "1.0.0"},
+        )
+
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            model = await model_crud.get_by_name(session, name="crud-get-by-name")
+            assert model is not None
+            assert model.name == "crud-get-by-name"
+            break
+
+    @pytest.mark.asyncio
+    async def test_get_by_name_not_found(self, client: AsyncClient):
+        """Test getting a nonexistent model by name."""
+        from app.crud import model_crud
+        from app.database import get_db
+
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            model = await model_crud.get_by_name(session, name="nonexistent-model-name")
+            assert model is None
+            break
+
+    @pytest.mark.asyncio
+    async def test_get_by_name_and_version(self, client: AsyncClient):
+        """Test getting a model by name and version."""
+        from app.crud import model_crud
+        from app.database import get_db
+
+        # Create models with different versions
+        await client.post(
+            "/api/v1/models",
+            json={"name": "crud-by-name-version", "version": "1.0.0"},
+        )
+        await client.post(
+            "/api/v1/models",
+            json={"name": "crud-by-name-version", "version": "2.0.0"},
+        )
+
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            model = await model_crud.get_by_name_and_version(
+                session, name="crud-by-name-version", version="2.0.0"
+            )
+            assert model is not None
+            assert model.version == "2.0.0"
+            break
+
+    @pytest.mark.asyncio
+    async def test_get_ready_models(self, client: AsyncClient, valid_onnx_file: io.BytesIO):
+        """Test getting models with READY status."""
+        from app.crud import model_crud
+        from app.database import get_db
+
+        # Create and make a model ready
+        create_response = await client.post(
+            "/api/v1/models",
+            json={"name": "crud-ready-model", "version": "1.0.0"},
+        )
+        model_id = create_response.json()["id"]
+
+        # Upload and validate to make it ready
+        files = {"file": ("model.onnx", valid_onnx_file, "application/octet-stream")}
+        await client.post(f"/api/v1/models/{model_id}/upload", files=files)
+        await client.post(f"/api/v1/models/{model_id}/validate")
+
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            ready_models = await model_crud.get_ready_models(session)
+            assert any(m.id == model_id for m in ready_models)
+            break
+
+    @pytest.mark.asyncio
+    async def test_update_status(self, client: AsyncClient):
+        """Test updating model status."""
+        from app.crud import model_crud
+        from app.models.ml_model import ModelStatus
+        from app.database import get_db
+
+        # Create a model
+        create_response = await client.post(
+            "/api/v1/models",
+            json={"name": "crud-update-status", "version": "1.0.0"},
+        )
+        model_id = create_response.json()["id"]
+
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            updated = await model_crud.update_status(
+                session, model_id=model_id, status=ModelStatus.READY
+            )
+            assert updated is not None
+            assert updated.status == ModelStatus.READY
+            break
+
+    @pytest.mark.asyncio
+    async def test_update_status_nonexistent(self, client: AsyncClient):
+        """Test updating status of nonexistent model returns None."""
+        from app.crud import model_crud
+        from app.models.ml_model import ModelStatus
+        from app.database import get_db
+
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            result = await model_crud.update_status(
+                session,
+                model_id="00000000-0000-0000-0000-000000000000",
+                status=ModelStatus.READY,
+            )
+            assert result is None
+            break
+
+    @pytest.mark.asyncio
+    async def test_get_versions_by_name(self, client: AsyncClient):
+        """Test getting all versions of a model."""
+        from app.crud import model_crud
+        from app.database import get_db
+
+        # Create multiple versions
+        for version in ["1.0.0", "2.0.0", "1.5.0"]:
+            await client.post(
+                "/api/v1/models",
+                json={"name": "crud-versions", "version": version},
+            )
+
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            versions = await model_crud.get_versions_by_name(session, name="crud-versions")
+            assert len(versions) == 3
+            # Should be sorted newest first (2.0.0, 1.5.0, 1.0.0)
+            assert versions[0].version == "2.0.0"
+            assert versions[1].version == "1.5.0"
+            assert versions[2].version == "1.0.0"
+            break
+
+    @pytest.mark.asyncio
+    async def test_get_latest_by_name(self, client: AsyncClient):
+        """Test getting the latest version of a model."""
+        from app.crud import model_crud
+        from app.database import get_db
+
+        # Create multiple versions
+        for version in ["1.0.0", "3.0.0", "2.0.0"]:
+            await client.post(
+                "/api/v1/models",
+                json={"name": "crud-latest", "version": version},
+            )
+
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            latest = await model_crud.get_latest_by_name(session, name="crud-latest")
+            assert latest is not None
+            assert latest.version == "3.0.0"
+            break
+
+    @pytest.mark.asyncio
+    async def test_get_latest_by_name_not_found(self, client: AsyncClient):
+        """Test getting latest version of nonexistent model."""
+        from app.crud import model_crud
+        from app.database import get_db
+
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            latest = await model_crud.get_latest_by_name(session, name="nonexistent-crud-latest")
+            assert latest is None
+            break
+
+    @pytest.mark.asyncio
+    async def test_get_latest_by_name_ready_only(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Test getting the latest READY version of a model."""
+        from app.crud import model_crud
+        from app.database import get_db
+
+        # Create v1.0.0 and make it ready
+        create_response = await client.post(
+            "/api/v1/models",
+            json={"name": "crud-latest-ready", "version": "1.0.0"},
+        )
+        model_id = create_response.json()["id"]
+        files = {"file": ("model.onnx", valid_onnx_file, "application/octet-stream")}
+        await client.post(f"/api/v1/models/{model_id}/upload", files=files)
+        await client.post(f"/api/v1/models/{model_id}/validate")
+
+        # Create v2.0.0 but leave it pending
+        await client.post(
+            "/api/v1/models",
+            json={"name": "crud-latest-ready", "version": "2.0.0"},
+        )
+
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            # Without ready_only, should get 2.0.0
+            latest = await model_crud.get_latest_by_name(session, name="crud-latest-ready")
+            assert latest.version == "2.0.0"
+
+            # With ready_only, should get 1.0.0
+            latest_ready = await model_crud.get_latest_by_name(
+                session, name="crud-latest-ready", ready_only=True
+            )
+            assert latest_ready.version == "1.0.0"
+            break
+
+    @pytest.mark.asyncio
+    async def test_count_versions_by_name(self, client: AsyncClient):
+        """Test counting versions of a model."""
+        from app.crud import model_crud
+        from app.database import get_db
+
+        # Create multiple versions
+        for version in ["1.0.0", "2.0.0", "3.0.0"]:
+            await client.post(
+                "/api/v1/models",
+                json={"name": "crud-count-versions", "version": version},
+            )
+
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            count = await model_crud.count_versions_by_name(session, name="crud-count-versions")
+            assert count == 3
+            break
+
+    @pytest.mark.asyncio
+    async def test_get_unique_model_names(self, client: AsyncClient):
+        """Test getting unique model names."""
+        from app.crud import model_crud
+        from app.database import get_db
+
+        # Create models with different names
+        for name in ["crud-unique-a", "crud-unique-b", "crud-unique-a"]:
+            await client.post(
+                "/api/v1/models",
+                json={"name": name, "version": f"1.0.{hash(name) % 100}"},
+            )
+
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            names = await model_crud.get_unique_model_names(session)
+            # Should contain both unique names
+            assert "crud-unique-a" in names
+            assert "crud-unique-b" in names
+            break

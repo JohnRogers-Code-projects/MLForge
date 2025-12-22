@@ -859,3 +859,255 @@ class TestJobDeletion:
             "/api/v1/jobs/00000000-0000-0000-0000-000000000000"
         )
         assert response.status_code == 404
+
+
+class TestJobCRUDOperations:
+    """Direct unit tests for Job CRUD operations."""
+
+    @pytest.mark.asyncio
+    async def test_get_by_model(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Test getting jobs by model ID."""
+        from app.crud import job_crud
+        from app.database import get_db
+
+        model_id = await setup_ready_model(client, valid_onnx_file, "crud-by-model")
+
+        # Create some jobs for this model
+        with patch("app.api.jobs.run_inference_task") as mock_task:
+            mock_task.delay.return_value.id = "mock-task-id"
+            for i in range(3):
+                await client.post(
+                    "/api/v1/jobs",
+                    json={"model_id": model_id, "input_data": {"input": [[float(i)] * 10]}},
+                )
+
+        # Get jobs using CRUD directly
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            jobs = await job_crud.get_by_model(session, model_id=model_id)
+            assert len(jobs) == 3
+            for job in jobs:
+                assert job.model_id == model_id
+            break
+
+    @pytest.mark.asyncio
+    async def test_get_by_model_with_pagination(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Test getting jobs by model ID with offset and limit."""
+        from app.crud import job_crud
+        from app.database import get_db
+
+        model_id = await setup_ready_model(client, valid_onnx_file, "crud-by-model-paged")
+
+        # Create 5 jobs
+        with patch("app.api.jobs.run_inference_task") as mock_task:
+            mock_task.delay.return_value.id = "mock-task-id"
+            for i in range(5):
+                await client.post(
+                    "/api/v1/jobs",
+                    json={"model_id": model_id, "input_data": {"input": [[float(i)] * 10]}},
+                )
+
+        # Test pagination
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            # Get first 2 jobs
+            jobs = await job_crud.get_by_model(session, model_id=model_id, offset=0, limit=2)
+            assert len(jobs) == 2
+
+            # Get next 2 jobs
+            jobs = await job_crud.get_by_model(session, model_id=model_id, offset=2, limit=2)
+            assert len(jobs) == 2
+            break
+
+    @pytest.mark.asyncio
+    async def test_get_pending_jobs(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Test getting pending jobs ordered by priority."""
+        from app.crud import job_crud
+        from app.database import get_db
+
+        model_id = await setup_ready_model(client, valid_onnx_file, "crud-pending-jobs")
+
+        # Create jobs with different priorities that stay in PENDING (Celery fails)
+        with patch("app.api.jobs.run_inference_task") as mock_task:
+            mock_task.delay.side_effect = Exception("Redis unavailable")
+
+            for priority in ["low", "normal", "high"]:
+                await client.post(
+                    "/api/v1/jobs",
+                    json={
+                        "model_id": model_id,
+                        "input_data": {"input": [[1.0] * 10]},
+                        "priority": priority,
+                    },
+                )
+
+        # Get pending jobs
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            pending = await job_crud.get_pending_jobs(session, limit=10)
+            # Should have 3 pending jobs (could have more from other tests)
+            assert len(pending) >= 3
+            # All should be pending
+            for job in pending:
+                assert job.status.value == "pending"
+            break
+
+    @pytest.mark.asyncio
+    async def test_count_by_status(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Test counting jobs by status."""
+        from app.crud import job_crud
+        from app.models.job import JobStatus
+        from app.database import get_db
+
+        model_id = await setup_ready_model(client, valid_onnx_file, "crud-count-status")
+
+        # Create some queued jobs
+        with patch("app.api.jobs.run_inference_task") as mock_task:
+            mock_task.delay.return_value.id = "mock-task-id"
+            for i in range(3):
+                await client.post(
+                    "/api/v1/jobs",
+                    json={"model_id": model_id, "input_data": {"input": [[float(i)] * 10]}},
+                )
+
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            queued_count = await job_crud.count_by_status(session, status=JobStatus.QUEUED)
+            assert queued_count >= 3
+            break
+
+    @pytest.mark.asyncio
+    async def test_update_status_to_running(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Test updating job status to RUNNING sets started_at."""
+        from app.crud import job_crud
+        from app.models.job import JobStatus
+        from app.database import get_db
+
+        model_id = await setup_ready_model(client, valid_onnx_file, "crud-status-running")
+
+        with patch("app.api.jobs.run_inference_task") as mock_task:
+            mock_task.delay.return_value.id = "mock-task-id"
+            response = await client.post(
+                "/api/v1/jobs",
+                json={"model_id": model_id, "input_data": {"input": [[1.0] * 10]}},
+            )
+        job_id = response.json()["id"]
+
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            updated = await job_crud.update_status(session, job_id=job_id, status=JobStatus.RUNNING)
+            assert updated is not None
+            assert updated.status == JobStatus.RUNNING
+            assert updated.started_at is not None
+            break
+
+    @pytest.mark.asyncio
+    async def test_update_status_to_completed(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Test updating job status to COMPLETED sets completed_at."""
+        from app.crud import job_crud
+        from app.models.job import JobStatus
+        from app.database import get_db
+
+        model_id = await setup_ready_model(client, valid_onnx_file, "crud-status-completed")
+
+        with patch("app.api.jobs.run_inference_task") as mock_task:
+            mock_task.delay.return_value.id = "mock-task-id"
+            response = await client.post(
+                "/api/v1/jobs",
+                json={"model_id": model_id, "input_data": {"input": [[1.0] * 10]}},
+            )
+        job_id = response.json()["id"]
+
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            updated = await job_crud.update_status(
+                session, job_id=job_id, status=JobStatus.COMPLETED
+            )
+            assert updated is not None
+            assert updated.status == JobStatus.COMPLETED
+            assert updated.completed_at is not None
+            break
+
+    @pytest.mark.asyncio
+    async def test_update_status_to_failed_with_error(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Test updating job status to FAILED with error message."""
+        from app.crud import job_crud
+        from app.models.job import JobStatus
+        from app.database import get_db
+
+        model_id = await setup_ready_model(client, valid_onnx_file, "crud-status-failed")
+
+        with patch("app.api.jobs.run_inference_task") as mock_task:
+            mock_task.delay.return_value.id = "mock-task-id"
+            response = await client.post(
+                "/api/v1/jobs",
+                json={"model_id": model_id, "input_data": {"input": [[1.0] * 10]}},
+            )
+        job_id = response.json()["id"]
+
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            updated = await job_crud.update_status(
+                session,
+                job_id=job_id,
+                status=JobStatus.FAILED,
+                error_message="Inference failed due to OOM",
+            )
+            assert updated is not None
+            assert updated.status == JobStatus.FAILED
+            assert updated.error_message == "Inference failed due to OOM"
+            assert updated.completed_at is not None
+            break
+
+    @pytest.mark.asyncio
+    async def test_update_status_nonexistent_job(
+        self, client: AsyncClient
+    ):
+        """Test updating status of nonexistent job returns None."""
+        from app.crud import job_crud
+        from app.models.job import JobStatus
+        from app.database import get_db
+
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            result = await job_crud.update_status(
+                session,
+                job_id="00000000-0000-0000-0000-000000000000",
+                status=JobStatus.RUNNING,
+            )
+            assert result is None
+            break
+
+    @pytest.mark.asyncio
+    async def test_update_status_to_cancelled(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Test updating job status to CANCELLED sets completed_at."""
+        from app.crud import job_crud
+        from app.models.job import JobStatus
+        from app.database import get_db
+
+        model_id = await setup_ready_model(client, valid_onnx_file, "crud-status-cancelled")
+
+        with patch("app.api.jobs.run_inference_task") as mock_task:
+            mock_task.delay.return_value.id = "mock-task-id"
+            response = await client.post(
+                "/api/v1/jobs",
+                json={"model_id": model_id, "input_data": {"input": [[1.0] * 10]}},
+            )
+        job_id = response.json()["id"]
+
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            updated = await job_crud.update_status(
+                session, job_id=job_id, status=JobStatus.CANCELLED
+            )
+            assert updated is not None
+            assert updated.status == JobStatus.CANCELLED
+            assert updated.completed_at is not None
+            break
