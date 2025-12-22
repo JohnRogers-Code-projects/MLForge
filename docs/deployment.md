@@ -62,7 +62,7 @@ DATABASE_URL=${{Postgres.DATABASE_URL}}
 REDIS_URL=${{Redis.REDIS_URL}}
 ENVIRONMENT=production
 SECRET_KEY=<generate-a-secure-key>
-CORS_ORIGINS=https://your-frontend-domain.railway.app
+CORS_ORIGINS=["https://your-frontend-domain.railway.app"]
 ```
 
 ### 5. Configure Celery Worker
@@ -108,11 +108,11 @@ GITHUB_SECRET=<your-github-oauth-app-secret>
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `CORS_ORIGINS` | `*` | Allowed CORS origins (comma-separated) |
+| `CORS_ORIGINS` | `["http://localhost:3000"]` | Allowed CORS origins (JSON array) |
 | `MAX_MODEL_SIZE_BYTES` | `104857600` | Maximum model file size (100MB) |
 | `CACHE_MODEL_TTL` | `3600` | Model cache TTL in seconds |
 | `CACHE_PREDICTION_TTL` | `300` | Prediction cache TTL in seconds |
-| `JOB_RETENTION_DAYS` | `7` | Days to keep completed jobs |
+| `JOB_RETENTION_DAYS` | `30` | Days to keep completed jobs |
 
 ### Frontend Required Variables
 

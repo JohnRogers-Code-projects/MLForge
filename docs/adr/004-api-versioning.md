@@ -76,13 +76,16 @@ We will use **URL path versioning** with the format `/api/v{major}/...`.
 
 ```
 /api/v1/
-├── health          # Health checks
-├── live            # Liveness probe
-├── ready           # Readiness probe
-├── models/         # Model management
-├── jobs/           # Job queue
-├── predictions/    # Direct inference
-└── cache/          # Cache management
+├── health              # Health checks
+├── health/celery       # Celery health
+├── live                # Liveness probe
+├── ready               # Readiness probe
+├── models/             # Model management
+│   └── {model_id}/
+│       ├── predict     # Synchronous inference
+│       └── predictions # Prediction history
+├── jobs/               # Async job queue
+└── cache/              # Cache management
 ```
 
 ### Future Considerations
