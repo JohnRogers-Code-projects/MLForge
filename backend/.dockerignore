@@ -1,0 +1,49 @@
+# Backend Docker Ignore
+# Excludes files not needed in the container
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+ENV/
+env/
+.env
+.env.*
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Development files
+*.md
+Makefile
+docker-compose*.yml
+
+# Railway config (not needed in container)
+railway.toml
+railway.worker.toml
+
+# Test files (not needed in production)
+tests/
+
+# Model storage (mounted as volume)
+model_storage/
+
+# Alembic versions are needed for migrations
+# Don't ignore alembic/
