@@ -480,10 +480,10 @@ class TestCacheServiceClearPrefix:
     @pytest.mark.asyncio
     async def test_clear_prefix_no_matching_keys(self, mock_redis):
         """Clear prefix returns 0 when no keys match."""
-        # Mock scan_iter to return no keys
+        # Mock scan_iter to return no keys (empty async generator)
         async def mock_scan_iter(**kwargs):
-            return
-            yield  # Make it a generator but yields nothing
+            if False:
+                yield  # Makes this an async generator that yields nothing
 
         mock_redis.scan_iter = mock_scan_iter
 
@@ -502,8 +502,9 @@ class TestCacheServiceClearPrefix:
         from redis.exceptions import RedisError
 
         async def mock_scan_iter(**kwargs):
+            if False:
+                yield  # Makes this an async generator
             raise RedisError("Connection error")
-            yield  # Make it a generator
 
         mock_redis.scan_iter = mock_scan_iter
 

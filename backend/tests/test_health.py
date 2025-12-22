@@ -204,12 +204,13 @@ class TestReadinessProbe:
 
             app.dependency_overrides[get_db] = failing_db
 
-            transport = ASGITransport(app=app)
-            async with AC(transport=transport, base_url="http://test") as test_client:
-                response = await test_client.get("/api/v1/ready")
-
-            # Clean up override
-            app.dependency_overrides.pop(get_db, None)
+            try:
+                transport = ASGITransport(app=app)
+                async with AC(transport=transport, base_url="http://test") as test_client:
+                    response = await test_client.get("/api/v1/ready")
+            finally:
+                # Clean up override even if test fails
+                app.dependency_overrides.pop(get_db, None)
 
         assert response.status_code == 200
         data = response.json()
