@@ -35,7 +35,8 @@ htmlcov/
 Makefile
 docker-compose*.yml
 
-# Railway config (only needed at root level)
+# Railway config (not needed in container)
+railway.toml
 railway.worker.toml
 
 # Test files (not needed in production)

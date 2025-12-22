@@ -1,17 +1,24 @@
-# Railway Configuration for ModelForge
-# This file configures how Railway builds and deploys the services
-
-[build]
-# Railway will detect the appropriate builder based on the service
-
-[deploy]
-# Default deployment settings
-restartPolicyType = "ON_FAILURE"
-restartPolicyMaxRetries = 10
-
-# Health check configuration
-healthcheckPath = "/api/v1/health"
-healthcheckTimeout = 30
-
-# Resource limits (adjust based on plan)
-numReplicas = 1
+# Railway Configuration Template for ModelForge
+#
+# NOTE: This root railway.toml is provided as documentation/template ONLY.
+# Railway configuration for actual services is defined in:
+#   - backend/railway.toml       (FastAPI API service)
+#   - backend/railway.worker.toml (Celery worker service)
+#   - frontend/railway.toml      (Next.js frontend service)
+#
+# Keeping configuration service-specific avoids ambiguity about
+# which service a given setting (e.g., health checks, replicas)
+# applies to.
+#
+# Example configuration snippet (for reference only):
+#
+# [build]
+# builder = "DOCKERFILE"
+# dockerfilePath = "Dockerfile"
+#
+# [deploy]
+# restartPolicyType = "ON_FAILURE"
+# restartPolicyMaxRetries = 10
+# healthcheckPath = "/api/v1/health"
+# healthcheckTimeout = 30
+# numReplicas = 1
