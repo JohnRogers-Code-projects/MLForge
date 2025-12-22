@@ -7,7 +7,7 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "celery -A app.celery worker --loglevel=info"
+startCommand = "celery -A app.worker worker --loglevel=info"
 # No healthcheckPath - Celery worker doesn't serve HTTP
 # Railway will use process-based health checks instead
 restartPolicyType = "ON_FAILURE"

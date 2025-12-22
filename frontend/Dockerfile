@@ -17,8 +17,13 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Set build-time environment variables
+# NOTE: NEXT_PUBLIC_API_URL must be set as a build-time variable in Railway
+# service settings, not just as a runtime variable
 ARG NEXT_PUBLIC_API_URL
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+
+# Ensure public directory exists (Next.js doesn't require it)
+RUN mkdir -p public
 
 # Build the Next.js application
 RUN npm run build
