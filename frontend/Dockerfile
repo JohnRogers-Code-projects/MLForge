@@ -1,12 +1,13 @@
 # Frontend Dockerfile for Next.js
 # Multi-stage build for optimized production image
+# NOTE: Build context is project root for Railway deployment
 
 # Stage 1: Dependencies
 FROM node:20-alpine AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-COPY package.json package-lock.json* ./
+COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm ci
 
 # Stage 2: Build
@@ -14,7 +15,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY frontend/. .
 
 # Set build-time environment variables
 # NOTE: NEXT_PUBLIC_API_URL must be set as a build-time variable in Railway
@@ -50,7 +51,8 @@ USER nextjs
 
 EXPOSE 3000
 
-ENV PORT=3000
+# Railway sets PORT dynamically
 ENV HOSTNAME="0.0.0.0"
 
-CMD ["node", "server.js"]
+# Use shell form to expand $PORT at runtime
+CMD node server.js
