@@ -187,30 +187,27 @@ class TestReadinessProbe:
     @pytest.mark.asyncio
     async def test_readiness_returns_not_ready_on_db_error(self, client: AsyncClient):
         """Test readiness probe returns not_ready when DB fails."""
-        # Patch the db.execute to raise an exception
-        with patch("app.api.health.get_db") as mock_get_db:
-            async def failing_db():
-                class FailingSession:
-                    async def execute(self, query):
-                        raise Exception("Database connection failed")
-                yield FailingSession()
+        from app.main import app
+        from app.database import get_db
+        from httpx import ASGITransport, AsyncClient as AC
 
-            mock_get_db.return_value = failing_db()
+        # Define a failing database dependency
+        async def failing_db():
+            class FailingSession:
+                async def execute(self, query):
+                    raise Exception("Database connection failed")
+            yield FailingSession()
 
-            # Create a new client with the patched dependency
-            from app.main import app
-            from app.database import get_db
-            from httpx import ASGITransport, AsyncClient as AC
+        # Override the dependency with our failing version
+        app.dependency_overrides[get_db] = failing_db
 
-            app.dependency_overrides[get_db] = failing_db
-
-            try:
-                transport = ASGITransport(app=app)
-                async with AC(transport=transport, base_url="http://test") as test_client:
-                    response = await test_client.get("/api/v1/ready")
-            finally:
-                # Clean up override even if test fails
-                app.dependency_overrides.pop(get_db, None)
+        try:
+            transport = ASGITransport(app=app)
+            async with AC(transport=transport, base_url="http://test") as test_client:
+                response = await test_client.get("/api/v1/ready")
+        finally:
+            # Clean up override even if test fails
+            app.dependency_overrides.pop(get_db, None)
 
         assert response.status_code == 200
         data = response.json()
