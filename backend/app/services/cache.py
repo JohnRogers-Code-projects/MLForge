@@ -370,6 +370,37 @@ class CacheService:
             logger.warning(f"Cache delete_keys failed: {e}")
             return 0
 
+    async def get_metrics(self) -> dict[str, Any]:
+        """Get cache metrics for monitoring.
+
+        Returns:
+            Dict with cache metrics including hit/miss counts and hit rate.
+        """
+        if not self.enabled:
+            return {"connected": False, "enabled": False}
+
+        if not self._connected or not self._client:
+            return {"connected": False, "enabled": True}
+
+        try:
+            # Get cache hit/miss metrics from Redis INFO
+            info = await self._client.info("stats")
+            hits = info.get("keyspace_hits", 0)
+            misses = info.get("keyspace_misses", 0)
+            total = hits + misses
+            hit_rate = (hits / total * 100) if total > 0 else 0
+
+            return {
+                "connected": True,
+                "enabled": True,
+                "hits": hits,
+                "misses": misses,
+                "hit_rate": round(hit_rate, 2),
+            }
+        except RedisError as e:
+            logger.warning(f"Failed to get cache metrics: {e}")
+            return {"connected": False, "enabled": True, "error": str(e)}
+
     async def get_or_set(
         self,
         key: str,

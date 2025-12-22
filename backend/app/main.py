@@ -1,5 +1,6 @@
 """FastAPI application entry point."""
 
+import os
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -10,6 +11,34 @@ from app.api import api_router
 from app.config import settings
 from app.database import init_db
 from app.services.cache import get_cache_service, close_cache_service
+from app.logging_config import setup_logging, get_logger
+from app.middleware import RequestLoggingMiddleware
+
+# Initialize logging
+setup_logging()
+logger = get_logger(__name__)
+
+# Optional Sentry integration for error alerting
+SENTRY_DSN = os.getenv("SENTRY_DSN")
+if SENTRY_DSN:
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.fastapi import FastApiIntegration
+        from sentry_sdk.integrations.celery import CeleryIntegration
+
+        sentry_sdk.init(
+            dsn=SENTRY_DSN,
+            environment=settings.environment,
+            release=settings.app_version,
+            traces_sample_rate=0.1,  # Sample 10% of requests for performance monitoring
+            integrations=[
+                FastApiIntegration(transaction_style="endpoint"),
+                CeleryIntegration(),
+            ],
+        )
+        logger.info("Sentry error tracking initialized")
+    except ImportError:
+        logger.warning("sentry-sdk not installed, error alerting disabled")
 
 
 # OpenAPI tag metadata for better API documentation
@@ -41,16 +70,29 @@ OPENAPI_TAGS = [
 async def lifespan(app: FastAPI) -> AsyncGenerator:
     """Application lifespan handler."""
     # Startup
+    logger.info(
+        "Starting ModelForge API",
+        extra={
+            "extra_fields": {
+                "version": settings.app_version,
+                "environment": settings.environment,
+            }
+        },
+    )
+
     if settings.environment == "development":
         await init_db()
 
     # Initialize Redis cache (graceful - won't fail if Redis unavailable)
     await get_cache_service()
+    logger.info("Application startup complete")
 
     yield
 
     # Shutdown
+    logger.info("Shutting down ModelForge API")
     await close_cache_service()
+    logger.info("Application shutdown complete")
 
 
 app = FastAPI(
@@ -101,6 +143,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Request logging middleware (adds request ID and timing)
+app.add_middleware(RequestLoggingMiddleware)
 
 # Include API routes
 app.include_router(api_router, prefix=settings.api_prefix)
