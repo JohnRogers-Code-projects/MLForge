@@ -5,7 +5,7 @@ testing real user journeys across multiple API endpoints.
 """
 
 import io
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch
 
 import onnx
 import pytest
@@ -262,7 +262,6 @@ class TestModelVersioningWorkflow:
             json={"name": model_name, "version": "1.0.0"},
         )
         assert v1_response.status_code == 201
-        v1_id = v1_response.json()["id"]
 
         # Create v2.0.0
         v2_response = await client.post(
@@ -270,7 +269,6 @@ class TestModelVersioningWorkflow:
             json={"name": model_name, "version": "2.0.0"},
         )
         assert v2_response.status_code == 201
-        v2_id = v2_response.json()["id"]
 
         # Create v1.5.0 (out of order)
         v15_response = await client.post(
