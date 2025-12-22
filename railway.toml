@@ -1,0 +1,17 @@
+# Railway Configuration for ModelForge
+# This file configures how Railway builds and deploys the services
+
+[build]
+# Railway will detect the appropriate builder based on the service
+
+[deploy]
+# Default deployment settings
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+# Health check configuration
+healthcheckPath = "/api/v1/health"
+healthcheckTimeout = 30
+
+# Resource limits (adjust based on plan)
+numReplicas = 1

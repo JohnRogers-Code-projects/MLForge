@@ -1,0 +1,42 @@
+# Frontend Docker Ignore
+# Excludes files not needed in the container
+
+# Dependencies (will be installed fresh)
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+
+# Next.js
+.next/
+out/
+
+# Production build (will be built fresh)
+build/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Development files
+*.md
+
+# E2E tests (not needed in production)
+e2e/
+playwright.config.ts

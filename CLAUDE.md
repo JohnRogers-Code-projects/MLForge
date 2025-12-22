@@ -292,10 +292,12 @@ backend/
 
 ### Phase 7: Railway Deployment
 
-#### PR 7.1: Railway Configuration
-- [ ] Add `railway.toml` configuration
-- [ ] Configure environment variables
-- [ ] Set up PostgreSQL and Redis services
+#### PR 7.1: Railway Configuration ✅ COMPLETE
+- [x] Add `railway.toml` configuration (root + per-service configs for backend, worker, frontend)
+- [x] Create frontend Dockerfile with multi-stage build
+- [x] Configure Next.js standalone output mode
+- [x] Add `.env.railway.example` environment variables template
+- [x] Add `.dockerignore` files for optimized builds
 
 #### PR 7.2: CI/CD Pipeline
 - [ ] GitHub Actions for test on PR
@@ -394,6 +396,7 @@ GITHUB_SECRET=your-github-client-secret
 - 2025-12-22: Completed PR 6.2 - Integration Tests (20 new tests covering full API workflows, versioning, error paths, pagination)
 - 2025-12-22: Completed PR 6.3 - E2E Tests (Playwright setup, 16 E2E tests, GitHub Actions CI pipeline)
 - 2025-12-22: Completed PR 6.4 - Documentation (OpenAPI enhancements, deployment guide, 4 ADRs)
+- 2025-12-22: Completed PR 7.1 - Railway Configuration (railway.toml files, frontend Dockerfile, env template, .dockerignore)
 
 ## Development Notes
 
@@ -408,8 +411,7 @@ docker-compose run --rm -e DATABASE_URL=postgresql+asyncpg://postgres:postgres@d
   api python -m pytest --cov=app --cov-report=term-missing -q
 ```
 
-**Next Steps for Phase 7 (Railway Deployment)**:
-1. Add `railway.toml` configuration file
-2. Configure environment variables for Railway services
-3. Set up PostgreSQL and Redis add-ons
-4. Configure CI/CD for auto-deploy on main merge
+**Next Steps for PR 7.2 (CI/CD Pipeline)**:
+1. Update GitHub Actions workflow for Railway deployment
+2. Add deployment on main branch merge (Railway auto-deploy integration)
+3. Add deployment status badges to README
