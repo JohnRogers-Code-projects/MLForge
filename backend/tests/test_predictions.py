@@ -355,3 +355,132 @@ class TestPredictionListing:
         assert data["items"][0]["input_data"]["input"][0][0] == 3.0
         assert data["items"][1]["input_data"]["input"][0][0] == 2.0
         assert data["items"][2]["input_data"]["input"][0][0] == 1.0
+
+
+class TestPredictionCRUDOperations:
+    """Direct unit tests for Prediction CRUD operations."""
+
+    @pytest.mark.asyncio
+    async def test_get_by_model(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Test getting predictions by model ID."""
+        from app.crud import prediction_crud
+        from app.database import get_db
+
+        model_id = await setup_ready_model(client, valid_onnx_file)
+
+        # Create some predictions
+        for i in range(3):
+            await client.post(
+                f"/api/v1/models/{model_id}/predict",
+                json={"input_data": {"input": [[float(i)] * 10]}},
+            )
+
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            predictions = await prediction_crud.get_by_model(session, model_id=model_id)
+            assert len(predictions) == 3
+            for pred in predictions:
+                assert pred.model_id == model_id
+            break
+
+    @pytest.mark.asyncio
+    async def test_count_by_model(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Test counting predictions by model ID."""
+        from app.crud import prediction_crud
+        from app.database import get_db
+
+        model_id = await setup_ready_model(client, valid_onnx_file)
+
+        # Create some predictions
+        for i in range(5):
+            await client.post(
+                f"/api/v1/models/{model_id}/predict",
+                json={"input_data": {"input": [[float(i)] * 10]}},
+            )
+
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            count = await prediction_crud.count_by_model(session, model_id=model_id)
+            assert count == 5
+            break
+
+    @pytest.mark.asyncio
+    async def test_create_with_model(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Test creating prediction with model (without inference)."""
+        from app.crud import prediction_crud
+        from app.schemas.prediction import PredictionCreate
+        from app.database import get_db
+
+        model_id = await setup_ready_model(client, valid_onnx_file)
+
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            pred_in = PredictionCreate(
+                input_data={"input": [[1.0] * 10]},
+                request_id="test-create-with-model",
+            )
+            prediction = await prediction_crud.create_with_model(
+                session, obj_in=pred_in, model_id=model_id
+            )
+            assert prediction.model_id == model_id
+            assert prediction.input_data == {"input": [[1.0] * 10]}
+            assert prediction.request_id == "test-create-with-model"
+            assert prediction.output_data is None  # Not set by this method
+            break
+
+    @pytest.mark.asyncio
+    async def test_create_with_results(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Test creating prediction with inference results."""
+        from app.crud import prediction_crud
+        from app.database import get_db
+
+        model_id = await setup_ready_model(client, valid_onnx_file)
+
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            prediction = await prediction_crud.create_with_results(
+                session,
+                model_id=model_id,
+                input_data={"input": [[1.0] * 10]},
+                output_data={"output": [[2.0] * 10]},
+                inference_time_ms=5.5,
+                request_id="test-with-results",
+                client_ip="192.168.1.1",
+                cached=False,
+            )
+            assert prediction.model_id == model_id
+            assert prediction.input_data == {"input": [[1.0] * 10]}
+            assert prediction.output_data == {"output": [[2.0] * 10]}
+            assert prediction.inference_time_ms == 5.5
+            assert prediction.request_id == "test-with-results"
+            assert prediction.client_ip == "192.168.1.1"
+            assert prediction.cached is False
+            break
+
+    @pytest.mark.asyncio
+    async def test_create_with_results_cached(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Test creating cached prediction."""
+        from app.crud import prediction_crud
+        from app.database import get_db
+
+        model_id = await setup_ready_model(client, valid_onnx_file)
+
+        async for session in client._transport.app.dependency_overrides[get_db]():
+            prediction = await prediction_crud.create_with_results(
+                session,
+                model_id=model_id,
+                input_data={"input": [[1.0] * 10]},
+                output_data={"output": [[2.0] * 10]},
+                inference_time_ms=0.1,  # Fast because cached
+                cached=True,
+            )
+            assert prediction.cached is True
+            assert prediction.request_id is None  # Optional field
+            assert prediction.client_ip is None  # Optional field
+            break
