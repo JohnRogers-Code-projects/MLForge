@@ -22,5 +22,5 @@ COPY backend/alembic.ini .
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
-# Run Celery worker
-CMD celery -A app.worker worker --loglevel=info
+# Run Celery worker - listen to both default and inference queues
+CMD celery -A app.worker worker --loglevel=info -Q default,inference
