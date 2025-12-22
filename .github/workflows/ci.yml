@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+# Deployment to Railway is handled automatically via Railway's GitHub integration
+# Railway will auto-deploy when changes are pushed to main after CI passes
+
 jobs:
   backend-tests:
     name: Backend Tests
@@ -146,3 +149,20 @@ jobs:
       - name: Run ESLint
         working-directory: frontend
         run: npm run lint
+
+  # Summary job for branch protection rules
+  ci-success:
+    name: CI Success
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-e2e, lint]
+    if: always()
+    steps:
+      - name: Check all jobs passed
+        run: |
+          if [[ "${{ needs.backend-tests.result }}" != "success" ]] || \
+             [[ "${{ needs.frontend-e2e.result }}" != "success" ]] || \
+             [[ "${{ needs.lint.result }}" != "success" ]]; then
+            echo "One or more jobs failed"
+            exit 1
+          fi
+          echo "All CI jobs passed successfully!"

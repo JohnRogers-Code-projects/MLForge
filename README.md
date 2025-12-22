@@ -1,5 +1,8 @@
 # ModelForge
 
+[![CI](https://github.com/JohnRogers-Code-projects/MLForge/actions/workflows/ci.yml/badge.svg)](https://github.com/JohnRogers-Code-projects/MLForge/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 ML Model Serving Platform - Deploy and serve ONNX models at scale.
 
 ## Features
@@ -118,6 +121,19 @@ ModelForge/
 | `REDIS_URL` | Redis connection URL | `redis://localhost:6379/0` |
 | `ENVIRONMENT` | Runtime environment | `development` |
 | `SECRET_KEY` | Application secret | `change-me-in-production` |
+
+## Deployment
+
+ModelForge is configured for deployment to [Railway](https://railway.app).
+
+### Railway Setup
+
+1. Connect your GitHub repository to Railway
+2. Railway will auto-deploy from the `main` branch
+3. Configure the required environment variables (see `.env.railway.example`)
+4. Add PostgreSQL and Redis services
+
+For detailed deployment instructions, see [docs/deployment.md](docs/deployment.md).
 
 ## License
 

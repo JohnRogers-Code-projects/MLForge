@@ -299,10 +299,12 @@ backend/
 - [x] Add `.env.railway.example` environment variables template
 - [x] Add `.dockerignore` files for optimized builds
 
-#### PR 7.2: CI/CD Pipeline
-- [ ] GitHub Actions for test on PR
-- [ ] Auto-deploy to Railway on main merge
-- [ ] Add deployment status badges
+#### PR 7.2: CI/CD Pipeline ✅ COMPLETE
+- [x] GitHub Actions CI with backend tests, E2E tests, and lint (already existed)
+- [x] Added CI summary job for branch protection rules
+- [x] Auto-deploy via Railway GitHub integration (documented)
+- [x] Add CI and license badges to README
+- [x] Add deployment section to README
 
 #### PR 7.3: Observability
 - [ ] Add structured logging
@@ -397,6 +399,7 @@ GITHUB_SECRET=your-github-client-secret
 - 2025-12-22: Completed PR 6.3 - E2E Tests (Playwright setup, 16 E2E tests, GitHub Actions CI pipeline)
 - 2025-12-22: Completed PR 6.4 - Documentation (OpenAPI enhancements, deployment guide, 4 ADRs)
 - 2025-12-22: Completed PR 7.1 - Railway Configuration (railway.toml files, frontend Dockerfile, env template, .dockerignore)
+- 2025-12-22: Completed PR 7.2 - CI/CD Pipeline (CI summary job, README badges, deployment docs)
 
 ## Development Notes
 
@@ -411,7 +414,7 @@ docker-compose run --rm -e DATABASE_URL=postgresql+asyncpg://postgres:postgres@d
   api python -m pytest --cov=app --cov-report=term-missing -q
 ```
 
-**Next Steps for PR 7.2 (CI/CD Pipeline)**:
-1. Update GitHub Actions workflow for Railway deployment
-2. Add deployment on main branch merge (Railway auto-deploy integration)
-3. Add deployment status badges to README
+**Next Steps for PR 7.3 (Observability)**:
+1. Add structured JSON logging for production
+2. Configure health monitoring dashboards
+3. Set up error alerting (Sentry or similar)
