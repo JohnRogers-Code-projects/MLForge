@@ -283,10 +283,10 @@ backend/
   - Frontend E2E tests with Playwright
   - ESLint checks
 
-#### PR 6.4: Documentation
-- [ ] Complete OpenAPI descriptions
-- [ ] Write deployment guide
-- [ ] Add architecture decision records
+#### PR 6.4: Documentation ✅ COMPLETE
+- [x] Complete OpenAPI descriptions (enhanced main.py with tag descriptions, API description)
+- [x] Write deployment guide (docs/deployment.md - Railway deployment)
+- [x] Add architecture decision records (docs/adr/ - 4 ADRs covering key decisions)
 
 ---
 
@@ -360,8 +360,8 @@ GITHUB_SECRET=your-github-client-secret
 - **Phase 3**: ✅ COMPLETE
 - **Phase 4**: ✅ COMPLETE
 - **Phase 5**: ✅ COMPLETE
-- **Phase 6**: In Progress (PR 6.1 ✅, PR 6.2 ✅, PR 6.3 ✅)
-- **Next PR**: PR 6.4 (Documentation)
+- **Phase 6**: ✅ COMPLETE
+- **Next Phase**: Phase 7 (Railway Deployment)
 - **Last Updated**: 2025-12-22
 - **Test Count**: 329 backend tests + 16 E2E tests
 - **Coverage**: 86%
@@ -393,6 +393,7 @@ GITHUB_SECRET=your-github-client-secret
 - 2025-12-22: Completed PR 6.1 - Test Coverage Expansion (56 new tests, 81% → 86% coverage, CRUD tests for all models)
 - 2025-12-22: Completed PR 6.2 - Integration Tests (20 new tests covering full API workflows, versioning, error paths, pagination)
 - 2025-12-22: Completed PR 6.3 - E2E Tests (Playwright setup, 16 E2E tests, GitHub Actions CI pipeline)
+- 2025-12-22: Completed PR 6.4 - Documentation (OpenAPI enhancements, deployment guide, 4 ADRs)
 
 ## Development Notes
 
@@ -407,7 +408,8 @@ docker-compose run --rm -e DATABASE_URL=postgresql+asyncpg://postgres:postgres@d
   api python -m pytest --cov=app --cov-report=term-missing -q
 ```
 
-**Next Steps for PR 6.4 (Documentation)**:
-1. Complete OpenAPI descriptions for all endpoints
-2. Write deployment guide for Railway
-3. Add architecture decision records (ADRs)
+**Next Steps for Phase 7 (Railway Deployment)**:
+1. Add `railway.toml` configuration file
+2. Configure environment variables for Railway services
+3. Set up PostgreSQL and Redis add-ons
+4. Configure CI/CD for auto-deploy on main merge
