@@ -5,12 +5,12 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import get_db
 from app.crud import model_crud
+from app.database import get_db
 from app.models.ml_model import MLModel
-from app.services.storage import StorageService, get_storage_service
-from app.services.onnx import ONNXService, get_onnx_service
 from app.services.cache import CacheService, get_cache_service
+from app.services.onnx import ONNXService, get_onnx_service
+from app.services.storage import StorageService, get_storage_service
 
 # Database session dependency
 DBSession = Annotated[AsyncSession, Depends(get_db)]

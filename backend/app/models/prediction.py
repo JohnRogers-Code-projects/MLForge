@@ -1,7 +1,7 @@
 """Prediction database model for storing inference results."""
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from sqlalchemy import DateTime, Float, ForeignKey, String, Uuid, func
@@ -33,15 +33,15 @@ class Prediction(Base):
 
     # Input/Output data
     input_data: Mapped[dict] = mapped_column(JSON, nullable=False)
-    output_data: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    output_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     # Performance metrics
-    inference_time_ms: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    inference_time_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
     cached: Mapped[bool] = mapped_column(default=False)
 
     # Request metadata
-    request_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    client_ip: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)
+    request_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    client_ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(

@@ -5,16 +5,18 @@ Revises:
 Create Date: 2025-12-14
 
 """
-from typing import Sequence, Union
 
-from alembic import op
+from collections.abc import Sequence
+
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
+from alembic import op
+
 revision: str = "001"
-down_revision: Union[str, None] = None
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = None
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -27,7 +29,14 @@ def upgrade() -> None:
         sa.Column("version", sa.String(50), nullable=False),
         sa.Column(
             "status",
-            sa.Enum("PENDING", "VALIDATING", "READY", "ERROR", "ARCHIVED", name="modelstatus"),
+            sa.Enum(
+                "PENDING",
+                "VALIDATING",
+                "READY",
+                "ERROR",
+                "ARCHIVED",
+                name="modelstatus",
+            ),
             nullable=False,
         ),
         sa.Column("file_path", sa.String(500), nullable=True),
@@ -72,7 +81,9 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["model_id"], ["ml_models.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_predictions_model_id"), "predictions", ["model_id"], unique=False)
+    op.create_index(
+        op.f("ix_predictions_model_id"), "predictions", ["model_id"], unique=False
+    )
 
     # Create jobs table
     op.create_table(
@@ -82,8 +93,13 @@ def upgrade() -> None:
         sa.Column(
             "status",
             sa.Enum(
-                "PENDING", "QUEUED", "RUNNING", "COMPLETED", "FAILED", "CANCELLED",
-                name="jobstatus"
+                "PENDING",
+                "QUEUED",
+                "RUNNING",
+                "COMPLETED",
+                "FAILED",
+                "CANCELLED",
+                name="jobstatus",
             ),
             nullable=False,
         ),

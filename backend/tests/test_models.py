@@ -1,6 +1,7 @@
 """Tests for ML model endpoints."""
 
 import io
+
 import onnx
 import pytest
 from httpx import AsyncClient
@@ -143,7 +144,9 @@ def sample_onnx_file() -> io.BytesIO:
 
 
 @pytest.mark.asyncio
-async def test_upload_model_file_success(client: AsyncClient, sample_onnx_file: io.BytesIO):
+async def test_upload_model_file_success(
+    client: AsyncClient, sample_onnx_file: io.BytesIO
+):
     """Test successful model file upload."""
     # Create a model first
     create_response = await client.post(
@@ -320,7 +323,9 @@ async def test_validate_model_success(client: AsyncClient, valid_onnx_file: io.B
 
     # Upload valid ONNX file
     files = {"file": ("model.onnx", valid_onnx_file, "application/octet-stream")}
-    upload_response = await client.post(f"/api/v1/models/{model_id}/upload", files=files)
+    upload_response = await client.post(
+        f"/api/v1/models/{model_id}/upload", files=files
+    )
     assert upload_response.status_code == 200
     assert upload_response.json()["status"] == "uploaded"
 
@@ -535,7 +540,9 @@ class TestModelCRUDOperations:
             break
 
     @pytest.mark.asyncio
-    async def test_get_ready_models(self, client: AsyncClient, valid_onnx_file: io.BytesIO):
+    async def test_get_ready_models(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
         """Test getting models with READY status."""
         from app.crud import model_crud
         from app.database import get_db
@@ -561,8 +568,8 @@ class TestModelCRUDOperations:
     async def test_update_status(self, client: AsyncClient):
         """Test updating model status."""
         from app.crud import model_crud
-        from app.models.ml_model import ModelStatus
         from app.database import get_db
+        from app.models.ml_model import ModelStatus
 
         # Create a model
         create_response = await client.post(
@@ -583,8 +590,8 @@ class TestModelCRUDOperations:
     async def test_update_status_nonexistent(self, client: AsyncClient):
         """Test updating status of nonexistent model returns None."""
         from app.crud import model_crud
-        from app.models.ml_model import ModelStatus
         from app.database import get_db
+        from app.models.ml_model import ModelStatus
 
         async for session in client._transport.app.dependency_overrides[get_db]():
             result = await model_crud.update_status(
@@ -609,7 +616,9 @@ class TestModelCRUDOperations:
             )
 
         async for session in client._transport.app.dependency_overrides[get_db]():
-            versions = await model_crud.get_versions_by_name(session, name="crud-versions")
+            versions = await model_crud.get_versions_by_name(
+                session, name="crud-versions"
+            )
             assert len(versions) == 3
             # Should be sorted newest first (2.0.0, 1.5.0, 1.0.0)
             assert versions[0].version == "2.0.0"
@@ -643,7 +652,9 @@ class TestModelCRUDOperations:
         from app.database import get_db
 
         async for session in client._transport.app.dependency_overrides[get_db]():
-            latest = await model_crud.get_latest_by_name(session, name="nonexistent-crud-latest")
+            latest = await model_crud.get_latest_by_name(
+                session, name="nonexistent-crud-latest"
+            )
             assert latest is None
             break
 
@@ -673,7 +684,9 @@ class TestModelCRUDOperations:
 
         async for session in client._transport.app.dependency_overrides[get_db]():
             # Without ready_only, should get 2.0.0
-            latest = await model_crud.get_latest_by_name(session, name="crud-latest-ready")
+            latest = await model_crud.get_latest_by_name(
+                session, name="crud-latest-ready"
+            )
             assert latest.version == "2.0.0"
 
             # With ready_only, should get 1.0.0
@@ -697,7 +710,9 @@ class TestModelCRUDOperations:
             )
 
         async for session in client._transport.app.dependency_overrides[get_db]():
-            count = await model_crud.count_versions_by_name(session, name="crud-count-versions")
+            count = await model_crud.count_versions_by_name(
+                session, name="crud-count-versions"
+            )
             assert count == 3
             break
 

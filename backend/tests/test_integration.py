@@ -74,7 +74,7 @@ class TestModelLifecycleWorkflow:
         # Verify output is input + 1 (our test model behavior)
         output = predict_response.json()["output_data"]["output"][0]
         expected = [2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0]
-        for actual, exp in zip(output, expected):
+        for actual, exp in zip(output, expected, strict=True):
             assert abs(actual - exp) < 0.001
 
         # Step 5: Verify prediction stored in history
@@ -198,7 +198,7 @@ class TestAsyncJobWorkflow:
         job_id = job_response.json()["id"]
 
         # Cancel job
-        with patch("app.api.jobs.celery_app") as mock_celery:
+        with patch("app.api.jobs.celery_app"):
             cancel_response = await client.post(f"/api/v1/jobs/{job_id}/cancel")
 
         assert cancel_response.status_code == 200
@@ -484,9 +484,9 @@ class TestCacheIntegration:
 
         # Verify both produce correct output
         expected = [2.0] * 10
-        for actual, exp in zip(output1, expected):
+        for actual, exp in zip(output1, expected, strict=True):
             assert abs(actual - exp) < 0.001
-        for actual, exp in zip(output2, expected):
+        for actual, exp in zip(output2, expected, strict=True):
             assert abs(actual - exp) < 0.001
 
         # Both should be stored (two different prediction IDs)
@@ -519,7 +519,7 @@ class TestCacheIntegration:
         # Verify output
         output = response.json()["output_data"]["output"][0]
         expected = [2.0] * 10
-        for actual, exp in zip(output, expected):
+        for actual, exp in zip(output, expected, strict=True):
             assert abs(actual - exp) < 0.001
 
 

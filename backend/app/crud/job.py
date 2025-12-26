@@ -1,7 +1,6 @@
 """CRUD operations for jobs."""
 
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -73,9 +72,7 @@ class CRUDJob(CRUDBase[Job, JobCreate, JobStatusUpdate]):
     ) -> int:
         """Count jobs by status."""
         result = await db.execute(
-            select(func.count())
-            .select_from(Job)
-            .where(Job.status == status)
+            select(func.count()).select_from(Job).where(Job.status == status)
         )
         return result.scalar() or 0
 
@@ -85,8 +82,8 @@ class CRUDJob(CRUDBase[Job, JobCreate, JobStatusUpdate]):
         *,
         job_id: str,
         status: JobStatus,
-        error_message: Optional[str] = None,
-    ) -> Optional[Job]:
+        error_message: str | None = None,
+    ) -> Job | None:
         """Update job status with timestamps."""
         job = await self.get(db, job_id)
         if not job:
@@ -97,9 +94,9 @@ class CRUDJob(CRUDBase[Job, JobCreate, JobStatusUpdate]):
             job.error_message = error_message
 
         if status == JobStatus.RUNNING:
-            job.started_at = datetime.now(timezone.utc)
+            job.started_at = datetime.now(UTC)
         elif status in (JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED):
-            job.completed_at = datetime.now(timezone.utc)
+            job.completed_at = datetime.now(UTC)
 
         await db.flush()
         await db.refresh(job)

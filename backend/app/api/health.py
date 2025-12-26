@@ -2,7 +2,7 @@
 
 import os
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import text
@@ -10,9 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_db
+from app.logging_config import get_logger
 from app.schemas.common import CeleryHealthResponse, HealthResponse
 from app.services.cache import CacheService, get_cache_service
-from app.logging_config import get_logger
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -107,7 +107,7 @@ async def health_check(
         status=overall_status,
         version=settings.app_version,
         environment=settings.environment,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         database=db_status,
         redis=redis_status,
         celery=celery_status,
@@ -130,7 +130,7 @@ async def celery_health_check() -> CeleryHealthResponse:
         workers=health.get("workers", {}),
         queues=health.get("queues", []),
         error=health.get("error"),
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
     )
 
 
@@ -177,11 +177,13 @@ async def metrics(
     try:
         await db.execute(text("SELECT 1"))
     except Exception:
-        logger.warning("Database connectivity check failed in /metrics endpoint", exc_info=True)
+        logger.warning(
+            "Database connectivity check failed in /metrics endpoint", exc_info=True
+        )
         db_connected = False
 
     metrics_data = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "application": {
             "name": settings.app_name,
             "version": settings.app_version,

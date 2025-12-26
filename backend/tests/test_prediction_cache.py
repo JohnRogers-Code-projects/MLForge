@@ -10,10 +10,11 @@ Tests cover:
 """
 
 import io
-import pytest
 from unittest.mock import AsyncMock
-from httpx import AsyncClient
+
 import onnx
+import pytest
+from httpx import AsyncClient
 
 from app.services.cache import CacheService
 from app.services.prediction_cache import (
@@ -99,6 +100,7 @@ class TestPredictionCacheDisabled:
     async def test_get_prediction_disabled(self, disabled_cache, monkeypatch):
         """Get returns miss when cache is disabled."""
         from app.config import settings
+
         monkeypatch.setattr(settings, "cache_prediction_enabled", False)
         pred_cache = PredictionCache(disabled_cache)
         result = await pred_cache.get_prediction("model-id", {"input": [[1.0]]})
@@ -108,6 +110,7 @@ class TestPredictionCacheDisabled:
     async def test_set_prediction_disabled(self, disabled_cache, monkeypatch):
         """Set returns False when cache is disabled."""
         from app.config import settings
+
         monkeypatch.setattr(settings, "cache_prediction_enabled", False)
         pred_cache = PredictionCache(disabled_cache)
         result = await pred_cache.set_prediction(
@@ -200,8 +203,7 @@ class TestPredictionCacheWithMockedRedis:
 
         # Verify incr was called for hits
         incr_calls = [
-            call for call in mock_redis.incr.call_args_list
-            if "hits" in str(call)
+            call for call in mock_redis.incr.call_args_list if "hits" in str(call)
         ]
         assert len(incr_calls) == 1
 
@@ -217,17 +219,20 @@ class TestPredictionCacheWithMockedRedis:
 
         # Verify incr was called for misses
         incr_calls = [
-            call for call in mock_redis.incr.call_args_list
-            if "misses" in str(call)
+            call for call in mock_redis.incr.call_args_list if "misses" in str(call)
         ]
         assert len(incr_calls) == 1
 
     @pytest.mark.asyncio
     async def test_invalidate_model_predictions(self, mock_cache_service, mock_redis):
         """Invalidate clears all predictions for a model."""
+
         # Mock scan_iter to return some keys
         async def mock_scan_iter(*args, **kwargs):
-            for key in ["test:prediction:model-123:abc", "test:prediction:model-123:def"]:
+            for key in [
+                "test:prediction:model-123:abc",
+                "test:prediction:model-123:def",
+            ]:
                 yield key
 
         mock_redis.scan_iter = mock_scan_iter
@@ -320,7 +325,9 @@ async def setup_ready_model(client: AsyncClient, valid_onnx_file: io.BytesIO) ->
     model_id = create_response.json()["id"]
 
     files = {"file": ("model.onnx", valid_onnx_file, "application/octet-stream")}
-    upload_response = await client.post(f"/api/v1/models/{model_id}/upload", files=files)
+    upload_response = await client.post(
+        f"/api/v1/models/{model_id}/upload", files=files
+    )
     assert upload_response.status_code == 200
 
     validate_response = await client.post(f"/api/v1/models/{model_id}/validate")

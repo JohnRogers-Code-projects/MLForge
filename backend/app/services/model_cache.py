@@ -13,7 +13,7 @@ Cache key patterns:
 
 import asyncio
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from app.config import settings
 from app.services.cache import CacheService
@@ -58,7 +58,7 @@ class ModelCache:
         """Generate cache key for versions list of a model."""
         return MODEL_VERSIONS_KEY.format(name=name)
 
-    async def get_model(self, model_id: str) -> Optional[dict[str, Any]]:
+    async def get_model(self, model_id: str) -> dict[str, Any] | None:
         """Get cached model by ID.
 
         Args:
@@ -87,7 +87,7 @@ class ModelCache:
 
     async def get_by_name_version(
         self, name: str, version: str
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Get cached model by name and version.
 
         Args:
@@ -147,11 +147,13 @@ class ModelCache:
 
         # If name or version changed, also invalidate old keys
         if old_name and old_name != name:
-            keys_to_delete.extend([
-                self._name_version_key(old_name, old_version or version),
-                self._latest_key(old_name),
-                self._versions_key(old_name),
-            ])
+            keys_to_delete.extend(
+                [
+                    self._name_version_key(old_name, old_version or version),
+                    self._latest_key(old_name),
+                    self._versions_key(old_name),
+                ]
+            )
         elif old_version and old_version != version:
             keys_to_delete.append(self._name_version_key(name, old_version))
 
@@ -201,7 +203,9 @@ def model_to_cache_dict(model: Any) -> dict[str, Any]:
         "name": model.name,
         "description": model.description,
         "version": model.version,
-        "status": model.status.value if hasattr(model.status, "value") else model.status,
+        "status": model.status.value
+        if hasattr(model.status, "value")
+        else model.status,
         "file_path": model.file_path,
         "file_size_bytes": model.file_size_bytes,
         "file_hash": model.file_hash,

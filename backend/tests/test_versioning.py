@@ -145,7 +145,9 @@ class TestListVersions:
                 json={"name": "version-list-model", "version": version},
             )
 
-        response = await client.get("/api/v1/models/by-name/version-list-model/versions")
+        response = await client.get(
+            "/api/v1/models/by-name/version-list-model/versions"
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -163,7 +165,9 @@ class TestListVersions:
                 json={"name": "sorted-versions-model", "version": version},
             )
 
-        response = await client.get("/api/v1/models/by-name/sorted-versions-model/versions")
+        response = await client.get(
+            "/api/v1/models/by-name/sorted-versions-model/versions"
+        )
 
         assert response.status_code == 200
         versions = [v["version"] for v in response.json()["versions"]]
@@ -179,7 +183,9 @@ class TestListVersions:
                 json={"name": "latest-version-model", "version": version},
             )
 
-        response = await client.get("/api/v1/models/by-name/latest-version-model/versions")
+        response = await client.get(
+            "/api/v1/models/by-name/latest-version-model/versions"
+        )
 
         assert response.status_code == 200
         assert response.json()["latest_version"] == "3.0.0"
@@ -278,7 +284,9 @@ class TestVersionStatusTracking:
             json={"name": "status-tracking-model", "version": "1.0.0"},
         )
 
-        response = await client.get("/api/v1/models/by-name/status-tracking-model/versions")
+        response = await client.get(
+            "/api/v1/models/by-name/status-tracking-model/versions"
+        )
 
         assert response.status_code == 200
         version = response.json()["versions"][0]

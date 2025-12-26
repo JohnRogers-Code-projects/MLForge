@@ -187,15 +187,18 @@ class TestReadinessProbe:
     @pytest.mark.asyncio
     async def test_readiness_returns_not_ready_on_db_error(self, client: AsyncClient):
         """Test readiness probe returns not_ready when DB fails."""
-        from app.main import app
+        from httpx import ASGITransport
+        from httpx import AsyncClient as AC
+
         from app.database import get_db
-        from httpx import ASGITransport, AsyncClient as AC
+        from app.main import app
 
         # Define a failing database dependency
         async def failing_db():
             class FailingSession:
                 async def execute(self, query):
                     raise Exception("Database connection failed")
+
             yield FailingSession()
 
         # Override the dependency with our failing version

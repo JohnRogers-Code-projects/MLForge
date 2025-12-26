@@ -1,6 +1,6 @@
 """CRUD operations for predictions."""
 
-from typing import Any, Optional
+from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -71,8 +71,8 @@ class CRUDPrediction(CRUDBase[Prediction, PredictionCreate, PredictionCreate]):
         input_data: dict[str, Any],
         output_data: dict[str, Any],
         inference_time_ms: float,
-        request_id: Optional[str] = None,
-        client_ip: Optional[str] = None,
+        request_id: str | None = None,
+        client_ip: str | None = None,
         cached: bool = False,
     ) -> Prediction:
         """Create a prediction with inference results.

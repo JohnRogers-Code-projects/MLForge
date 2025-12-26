@@ -8,7 +8,7 @@ input/output tensors and model metadata like opset version and producer info.
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import onnxruntime as ort
@@ -56,7 +56,7 @@ class TensorSchema:
 
     name: str
     dtype: str
-    shape: list[Optional[int]]
+    shape: list[int | None]
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -103,7 +103,7 @@ class ValidationResult:
     input_schema: list[TensorSchema] = field(default_factory=list)
     output_schema: list[TensorSchema] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -149,7 +149,7 @@ class ONNXService:
     that models are compatible with the runtime and can be used for inference.
     """
 
-    def __init__(self, providers: Optional[list[str]] = None):
+    def __init__(self, providers: list[str] | None = None):
         """Initialize ONNX service.
 
         Args:
@@ -158,7 +158,9 @@ class ONNXService:
         """
         self.providers = providers or ["CPUExecutionProvider"]
         # Session cache: maps resolved path string to (session, input_names, output_names)
-        self._session_cache: dict[str, tuple[ort.InferenceSession, list[str], list[str]]] = {}
+        self._session_cache: dict[
+            str, tuple[ort.InferenceSession, list[str], list[str]]
+        ] = {}
 
     def validate(self, model_path: Path | str) -> ValidationResult:
         """Validate an ONNX model and extract its schemas.
@@ -321,7 +323,7 @@ class ONNXService:
 
         # Convert outputs to serializable format
         outputs = {}
-        for name, result in zip(output_names, results):
+        for name, result in zip(output_names, results, strict=True):
             # Convert numpy arrays to nested lists for JSON serialization
             if isinstance(result, np.ndarray):
                 outputs[name] = result.tolist()
@@ -434,7 +436,9 @@ class ONNXService:
             providers=self.providers,
         )
 
-    def _extract_input_schema(self, session: ort.InferenceSession) -> list[TensorSchema]:
+    def _extract_input_schema(
+        self, session: ort.InferenceSession
+    ) -> list[TensorSchema]:
         """Extract input tensor schemas from session.
 
         Args:
@@ -447,14 +451,18 @@ class ONNXService:
         for input_meta in session.get_inputs():
             dtype = self._convert_dtype(input_meta.type)
             shape = self._convert_shape(input_meta.shape)
-            schemas.append(TensorSchema(
-                name=input_meta.name,
-                dtype=dtype,
-                shape=shape,
-            ))
+            schemas.append(
+                TensorSchema(
+                    name=input_meta.name,
+                    dtype=dtype,
+                    shape=shape,
+                )
+            )
         return schemas
 
-    def _extract_output_schema(self, session: ort.InferenceSession) -> list[TensorSchema]:
+    def _extract_output_schema(
+        self, session: ort.InferenceSession
+    ) -> list[TensorSchema]:
         """Extract output tensor schemas from session.
 
         Args:
@@ -467,11 +475,13 @@ class ONNXService:
         for output_meta in session.get_outputs():
             dtype = self._convert_dtype(output_meta.type)
             shape = self._convert_shape(output_meta.shape)
-            schemas.append(TensorSchema(
-                name=output_meta.name,
-                dtype=dtype,
-                shape=shape,
-            ))
+            schemas.append(
+                TensorSchema(
+                    name=output_meta.name,
+                    dtype=dtype,
+                    shape=shape,
+                )
+            )
         return schemas
 
     def _extract_metadata(
@@ -548,7 +558,7 @@ class ONNXService:
         """
         return _ONNX_DTYPE_MAP.get(onnx_type, onnx_type)
 
-    def _convert_shape(self, shape: list) -> list[Optional[int]]:
+    def _convert_shape(self, shape: list) -> list[int | None]:
         """Convert ONNX shape to list of dimensions.
 
         Dynamic dimensions (strings like 'batch_size') are converted to None.
@@ -570,7 +580,7 @@ class ONNXService:
 
 
 # Singleton instance for dependency injection
-_onnx_service: Optional[ONNXService] = None
+_onnx_service: ONNXService | None = None
 
 
 def get_onnx_service() -> ONNXService:

@@ -2,18 +2,27 @@
 
 import enum
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
-from sqlalchemy import DateTime, Enum, Integer, String, Text, UniqueConstraint, Uuid, func
+from sqlalchemy import (
+    DateTime,
+    Enum,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    Uuid,
+    func,
+)
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 
 if TYPE_CHECKING:
-    from app.models.prediction import Prediction
     from app.models.job import Job
+    from app.models.prediction import Prediction
 
 
 class ModelStatus(str, enum.Enum):
@@ -41,7 +50,7 @@ class MLModel(Base):
         default=lambda: str(uuid4()),
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     version: Mapped[str] = mapped_column(String(50), nullable=False, default="1.0.0")
     status: Mapped[ModelStatus] = mapped_column(
         Enum(ModelStatus),
@@ -50,15 +59,15 @@ class MLModel(Base):
     )
 
     # Model file information
-    file_path: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-    file_size_bytes: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    file_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    file_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    file_size_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    file_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     # ONNX metadata (populated after validation)
-    input_schema: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-    output_schema: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    input_schema: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    output_schema: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     # Note: Named 'model_metadata' to avoid conflict with SQLAlchemy's reserved 'metadata' attribute
-    model_metadata: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    model_metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(

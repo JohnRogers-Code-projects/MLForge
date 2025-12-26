@@ -1,7 +1,7 @@
 """FastAPI application entry point."""
 
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,9 +9,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import api_router
 from app.config import settings
 from app.database import init_db
-from app.services.cache import get_cache_service, close_cache_service
-from app.logging_config import setup_logging, get_logger
+from app.logging_config import get_logger, setup_logging
 from app.middleware import RequestLoggingMiddleware
+from app.services.cache import close_cache_service, get_cache_service
 
 # Initialize logging
 setup_logging()
@@ -21,8 +21,8 @@ logger = get_logger(__name__)
 if settings.sentry_dsn:
     try:
         import sentry_sdk
-        from sentry_sdk.integrations.fastapi import FastApiIntegration
         from sentry_sdk.integrations.celery import CeleryIntegration
+        from sentry_sdk.integrations.fastapi import FastApiIntegration
 
         sentry_sdk.init(
             dsn=settings.sentry_dsn,

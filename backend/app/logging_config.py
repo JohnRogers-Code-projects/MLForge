@@ -4,12 +4,12 @@ Provides JSON-formatted logs in production and human-readable logs in developmen
 Includes request ID tracking for log correlation.
 """
 
+import json
 import logging
 import sys
-import json
-from datetime import datetime, timezone
-from typing import Any
 from contextvars import ContextVar
+from datetime import UTC, datetime
+from typing import Any
 
 from app.config import settings
 
@@ -22,7 +22,7 @@ class JSONFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         log_data: dict[str, Any] = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),

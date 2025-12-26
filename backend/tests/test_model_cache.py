@@ -7,8 +7,9 @@ Tests cover:
 - ModelCache helper class
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 from httpx import AsyncClient
 
 from app.services.cache import CacheService
@@ -103,8 +104,7 @@ class TestModelCacheHelper:
         model_cache = ModelCache(mock_cache)
 
         await model_cache.invalidate_model(
-            "abc-123", "new-model", "1.0.0",
-            old_name="old-model", old_version="1.0.0"
+            "abc-123", "new-model", "1.0.0", old_name="old-model", old_version="1.0.0"
         )
 
         # Should delete: by ID, new name/version, new latest, new versions,
@@ -117,8 +117,7 @@ class TestModelCacheHelper:
         model_cache = ModelCache(mock_cache)
 
         await model_cache.invalidate_model(
-            "abc-123", "my-model", "2.0.0",
-            old_version="1.0.0"
+            "abc-123", "my-model", "2.0.0", old_version="1.0.0"
         )
 
         # Should delete: by ID, new name/version, latest, versions,

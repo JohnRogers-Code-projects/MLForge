@@ -4,7 +4,7 @@ These tests verify the run_inference_task Celery task behaves correctly,
 including status transitions, timing metrics, error handling, and retries.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
@@ -31,7 +31,7 @@ def create_mock_job():
     job.error_traceback = None
     job.inference_time_ms = None
     job.queue_time_ms = None
-    job.created_at = datetime.now(timezone.utc)
+    job.created_at = datetime.now(UTC)
     job.started_at = None
     job.completed_at = None
     return job
@@ -83,6 +83,7 @@ class TestRunInferenceTask:
 
             # Configure eager mode for testing
             from app.celery import celery_app
+
             celery_app.conf.task_always_eager = True
 
             # Run with apply() to execute synchronously
@@ -108,6 +109,7 @@ class TestRunInferenceTask:
             mock_session.return_value.__exit__ = MagicMock(return_value=False)
 
             from app.celery import celery_app
+
             celery_app.conf.task_always_eager = True
 
             result = run_inference_task.apply(args=["nonexistent-job-id"])
@@ -119,6 +121,7 @@ class TestRunInferenceTask:
     def test_task_model_not_found_triggers_retry(self):
         """Test task triggers retry when model not found (may be transient)."""
         from celery.exceptions import Retry
+
         from app.tasks.inference import run_inference_task
 
         mock_job = create_mock_job()
@@ -138,6 +141,7 @@ class TestRunInferenceTask:
             mock_settings.job_max_retries = 3
 
             from app.celery import celery_app
+
             celery_app.conf.task_always_eager = True
             celery_app.conf.task_eager_propagates = True
 
@@ -148,6 +152,7 @@ class TestRunInferenceTask:
     def test_task_model_not_ready_triggers_retry(self):
         """Test task triggers retry when model not ready (may be transient)."""
         from celery.exceptions import Retry
+
         from app.tasks.inference import run_inference_task
 
         mock_job = create_mock_job()
@@ -169,6 +174,7 @@ class TestRunInferenceTask:
             mock_settings.job_max_retries = 3
 
             from app.celery import celery_app
+
             celery_app.conf.task_always_eager = True
             celery_app.conf.task_eager_propagates = True
 
@@ -179,6 +185,7 @@ class TestRunInferenceTask:
     def test_task_model_no_file_triggers_retry(self):
         """Test task triggers retry when model has no file (may be transient)."""
         from celery.exceptions import Retry
+
         from app.tasks.inference import run_inference_task
 
         mock_job = create_mock_job()
@@ -200,6 +207,7 @@ class TestRunInferenceTask:
             mock_settings.job_max_retries = 3
 
             from app.celery import celery_app
+
             celery_app.conf.task_always_eager = True
             celery_app.conf.task_eager_propagates = True
 
@@ -235,6 +243,7 @@ class TestRunInferenceTask:
             mock_settings.job_max_retries = 3
 
             from app.celery import celery_app
+
             celery_app.conf.task_always_eager = True
 
             result = run_inference_task.apply(args=[mock_job.id])
@@ -276,6 +285,7 @@ class TestRunInferenceTask:
             mock_settings.job_max_retries = 3
 
             from app.celery import celery_app
+
             celery_app.conf.task_always_eager = True
 
             result = run_inference_task.apply(args=[mock_job.id])
@@ -323,6 +333,7 @@ class TestRunInferenceTask:
             mock_settings.job_max_retries = 3
 
             from app.celery import celery_app
+
             celery_app.conf.task_always_eager = True
 
             run_inference_task.apply(args=[mock_job.id])
@@ -360,6 +371,7 @@ class TestRunInferenceTask:
             mock_settings.job_max_retries = 3
 
             from app.celery import celery_app
+
             celery_app.conf.task_always_eager = True
 
             run_inference_task.apply(args=[mock_job.id])

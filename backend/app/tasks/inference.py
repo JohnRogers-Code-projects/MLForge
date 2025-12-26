@@ -10,7 +10,7 @@ asynchronously. The task:
 import logging
 import time
 import traceback
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -22,7 +22,7 @@ from app.config import settings
 from app.database import sync_engine
 from app.models.job import Job, JobStatus
 from app.models.ml_model import MLModel, ModelStatus
-from app.services.onnx import ONNXService, ONNXError
+from app.services.onnx import ONNXError, ONNXService
 
 logger = logging.getLogger(__name__)
 
@@ -73,12 +73,14 @@ def run_inference_task(self, job_id: str) -> dict[str, Any]:
             return {"job_id": job_id, "status": "error", "error": "Job not found"}
 
         # Calculate queue time (time from job creation to task start)
-        queue_time_ms = (datetime.now(timezone.utc) - job.created_at).total_seconds() * 1000
+        queue_time_ms = (
+            datetime.now(UTC) - job.created_at
+        ).total_seconds() * 1000
 
         # Update job status to RUNNING
         try:
             job.status = JobStatus.RUNNING
-            job.started_at = datetime.now(timezone.utc)
+            job.started_at = datetime.now(UTC)
             job.queue_time_ms = queue_time_ms
             job.celery_task_id = self.request.id
             job.worker_id = self.request.hostname
@@ -99,7 +101,9 @@ def run_inference_task(self, job_id: str) -> dict[str, Any]:
                 raise ValueError(f"Model {job.model_id} not found")
 
             if model.status != ModelStatus.READY:
-                raise ValueError(f"Model {job.model_id} is not ready (status: {model.status})")
+                raise ValueError(
+                    f"Model {job.model_id} is not ready (status: {model.status})"
+                )
 
             if not model.file_path:
                 raise ValueError(f"Model {job.model_id} has no file uploaded")
@@ -120,7 +124,7 @@ def run_inference_task(self, job_id: str) -> dict[str, Any]:
             job.status = JobStatus.COMPLETED
             job.output_data = result.outputs
             job.inference_time_ms = result.inference_time_ms
-            job.completed_at = datetime.now(timezone.utc)
+            job.completed_at = datetime.now(UTC)
             db.commit()
 
             total_time_ms = (time.perf_counter() - task_start_time) * 1000
@@ -146,7 +150,7 @@ def run_inference_task(self, job_id: str) -> dict[str, Any]:
             job.status = JobStatus.FAILED
             job.error_message = error_msg
             job.error_traceback = traceback.format_exc()
-            job.completed_at = datetime.now(timezone.utc)
+            job.completed_at = datetime.now(UTC)
             db.commit()
 
             return {
@@ -174,7 +178,7 @@ def run_inference_task(self, job_id: str) -> dict[str, Any]:
                 job.status = JobStatus.FAILED
                 job.error_message = f"Max retries exceeded: {error_msg}"
                 job.error_traceback = traceback.format_exc()
-                job.completed_at = datetime.now(timezone.utc)
+                job.completed_at = datetime.now(UTC)
 
                 try:
                     db.commit()
