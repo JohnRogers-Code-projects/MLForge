@@ -132,7 +132,11 @@ Returns:
 {
   "status": "healthy",
   "database": "connected",
-  "redis": "connected"
+  "redis": "connected",
+  "celery": "connected",
+  "version": "1.0.0",
+  "environment": "development",
+  "timestamp": "2025-01-01T12:00:00Z"
 }
 ```
 
@@ -144,7 +148,7 @@ The test suite includes performance assertions:
 |------|-----------|---------|
 | `test_single_prediction_latency_under_100ms` | < 100ms | Catch latency regressions |
 | `test_batch_prediction_throughput` | > 100 pred/sec | Ensure minimum throughput |
-| `test_cache_hit_latency_under_50ms` | < 50ms* | Verify cache effectiveness |
+| `test_cache_hit_latency_under_10ms` | < 50ms* | Verify cache effectiveness |
 
 *Note: The 50ms threshold is for test environments without real Redis. Production cache hits are typically < 10ms.
 
@@ -155,18 +159,15 @@ For detailed performance analysis:
 ```bash
 # Profile a prediction using a script
 cat > profile_prediction.py << 'EOF'
-import asyncio
 from pathlib import Path
 from app.services.onnx import ONNXService
 
-async def profile_inference():
+if __name__ == "__main__":
     service = ONNXService()
     model_path = Path("path/to/your/model.onnx")
     input_data = {"input": [[1.0] * 10]}
     result = service.run_inference(model_path, input_data)
     print(f"Inference time: {result.inference_time_ms:.2f}ms")
-
-asyncio.run(profile_inference())
 EOF
 
 python -m cProfile -o profile.stats profile_prediction.py
