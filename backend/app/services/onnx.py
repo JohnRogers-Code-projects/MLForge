@@ -569,7 +569,7 @@ class ONNXService:
         Returns:
             List of dimensions with None for dynamic axes
         """
-        result = []
+        result: list[int | None] = []
         for dim in shape:
             if isinstance(dim, int):
                 result.append(dim)

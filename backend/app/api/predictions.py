@@ -115,6 +115,13 @@ async def create_prediction(
     # Get client IP for logging
     client_ip = request.client.host if request.client else None
 
+    # Ensure we have results (either from cache or inference)
+    if output_data is None or inference_time_ms is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Inference did not produce results.",
+        )
+
     # Create prediction record with results (always, even on cache hit for audit)
     prediction = await prediction_crud.create_with_results(
         db,
