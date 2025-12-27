@@ -3,16 +3,45 @@
 [![CI](https://github.com/JohnRogers-Code-projects/MLForge/actions/workflows/ci.yml/badge.svg)](https://github.com/JohnRogers-Code-projects/MLForge/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-ML Model Serving Platform - Deploy and serve ONNX models at scale.
+Generic ONNX model serving platform. Upload any model, get predictions via REST API.
+
+## Why ModelForge?
+
+- **Fast** - ONNX Runtime for optimized inference + Redis caching for repeated predictions
+- **Simple** - REST API with no ML framework lock-in; works with any ONNX model
+- **Scalable** - Async job queue (Celery) for batch processing and long-running inference
+- **Observable** - Health checks, metrics endpoints, and optional Sentry integration
+
+## Architecture
+
+```
+┌─────────────┐     ┌─────────────────────────────────────────┐
+│   Clients   │────▶│            FastAPI Application          │
+└─────────────┘     │  ┌─────────┬──────────┬───────┬───────┐ │
+                    │  │ Models  │Predictions│ Jobs  │ Cache │ │
+                    │  └────┬────┴─────┬────┴───┬───┴───┬───┘ │
+                    └───────┼──────────┼────────┼───────┼─────┘
+                            │          │        │       │
+                    ┌───────▼───┐ ┌────▼────┐ ┌─▼─┐ ┌───▼───┐
+                    │ PostgreSQL│ │  ONNX   │ │   │ │ Redis │
+                    │(metadata) │ │ Runtime │ │ C │ │(cache)│
+                    └───────────┘ └────┬────┘ │ e │ └───────┘
+                                       │      │ l │
+                                  ┌────▼────┐ │ e │
+                                  │  File   │ │ r │
+                                  │ Storage │ │ y │
+                                  └─────────┘ └───┘
+```
+
+For detailed architecture documentation, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Features
 
-- **FastAPI Backend** - High-performance async API
-- **ONNX Runtime** - Efficient ML model inference
-- **PostgreSQL** - Reliable model metadata storage
-- **Redis Caching** - Fast prediction caching
-- **Async Job Queue** - Background inference processing
-- **Next.js Dashboard** - Modern management UI
+- **FastAPI Backend** - High-performance async API with automatic OpenAPI docs
+- **ONNX Runtime** - Framework-agnostic inference (PyTorch, TensorFlow, scikit-learn)
+- **PostgreSQL** - Model metadata, prediction history, and job tracking
+- **Redis Caching** - Sub-millisecond cached predictions with configurable TTL
+- **Celery Workers** - Background job processing with retry and timeout handling
 
 ## Quick Start
 
@@ -20,7 +49,7 @@ ML Model Serving Platform - Deploy and serve ONNX models at scale.
 
 - Docker & Docker Compose
 - Python 3.11+ (for local development)
-- Node.js 18+ (for frontend)
+- Node.js 18+ (for frontend development)
 
 ### Running with Docker
 
@@ -61,6 +90,55 @@ cd backend
 pytest -v --cov=app
 ```
 
+## API Examples
+
+### Create a Model
+
+```bash
+curl -X POST http://localhost:8000/api/v1/models \
+  -H "Content-Type: application/json" \
+  -d '{"name": "my-classifier", "version": "1.0.0"}'
+```
+
+Response:
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "my-classifier",
+  "version": "1.0.0",
+  "status": "pending"
+}
+```
+
+### Upload and Validate Model
+
+```bash
+# Upload ONNX file
+curl -X POST http://localhost:8000/api/v1/models/{model_id}/upload \
+  -F "file=@model.onnx"
+
+# Validate model (extracts schema)
+curl -X POST http://localhost:8000/api/v1/models/{model_id}/validate
+```
+
+### Run Prediction
+
+```bash
+curl -X POST http://localhost:8000/api/v1/models/{model_id}/predict \
+  -H "Content-Type: application/json" \
+  -d '{"input_data": {"input": [[1.0, 2.0, 3.0, 4.0, 5.0]]}}'
+```
+
+Response:
+```json
+{
+  "id": "prediction-uuid",
+  "output_data": {"output": [[0.85]]},
+  "inference_time_ms": 12.5,
+  "cached": false
+}
+```
+
 ## API Documentation
 
 Once running, access the interactive API docs:
@@ -78,40 +156,56 @@ ModelForge/
 │   │   ├── crud/         # Database operations
 │   │   ├── models/       # SQLAlchemy models
 │   │   ├── schemas/      # Pydantic schemas
+│   │   ├── services/     # Business logic (ONNX, cache, storage)
+│   │   ├── tasks/        # Celery async tasks
 │   │   ├── config.py     # Settings
 │   │   ├── database.py   # DB connection
 │   │   └── main.py       # FastAPI app
 │   ├── alembic/          # Database migrations
 │   ├── tests/            # Pytest tests
 │   └── Dockerfile
-├── frontend/             # Next.js dashboard (Phase 5)
+├── docs/
+│   ├── ARCHITECTURE.md   # System architecture
+│   └── deployment.md     # Deployment guide
 ├── docker-compose.yml
-└── CLAUDE.md             # Build plan
+└── CLAUDE.md
 ```
 
 ## API Endpoints
 
 ### Health
-- `GET /api/v1/health` - Health check
-- `GET /api/v1/ready` - Readiness probe
-- `GET /api/v1/live` - Liveness probe
+- `GET /api/v1/health` - Health check with service status
+- `GET /api/v1/health/celery` - Detailed Celery worker health
+- `GET /api/v1/ready` - Kubernetes readiness probe
+- `GET /api/v1/live` - Kubernetes liveness probe
+- `GET /api/v1/metrics` - Application metrics
 
 ### Models
-- `POST /api/v1/models` - Create model
-- `GET /api/v1/models` - List models
-- `GET /api/v1/models/{id}` - Get model
-- `PATCH /api/v1/models/{id}` - Update model
-- `DELETE /api/v1/models/{id}` - Delete model
+- `POST /api/v1/models` - Create model metadata
+- `GET /api/v1/models` - List all models
+- `GET /api/v1/models/{model_id}` - Get model details
+- `PATCH /api/v1/models/{model_id}` - Update model metadata
+- `POST /api/v1/models/{model_id}/upload` - Upload ONNX file
+- `POST /api/v1/models/{model_id}/validate` - Validate and activate model
+- `DELETE /api/v1/models/{model_id}` - Delete model
+- `GET /api/v1/models/by-name/{name}/versions` - List all versions of a model
+- `GET /api/v1/models/by-name/{name}/latest` - Get latest version of a model
 
 ### Predictions
-- `POST /api/v1/predictions/models/{id}/predict` - Create prediction
-- `GET /api/v1/predictions/models/{id}/predictions` - List predictions
+- `POST /api/v1/models/{model_id}/predict` - Run synchronous prediction
+- `GET /api/v1/models/{model_id}/predictions` - List prediction history
 
-### Jobs
-- `POST /api/v1/jobs` - Create async job
+### Jobs (Async Inference)
+- `POST /api/v1/jobs` - Create async inference job
 - `GET /api/v1/jobs` - List jobs
-- `GET /api/v1/jobs/{id}` - Get job
-- `POST /api/v1/jobs/{id}/cancel` - Cancel job
+- `GET /api/v1/jobs/{job_id}` - Get job status
+- `GET /api/v1/jobs/{job_id}/result` - Poll for job result
+- `POST /api/v1/jobs/{job_id}/cancel` - Cancel pending/running job
+- `DELETE /api/v1/jobs/{job_id}` - Delete completed/failed job
+
+### Cache
+- `GET /api/v1/cache/metrics` - Cache hit/miss statistics
+- `POST /api/v1/cache/metrics/reset` - Reset cache metrics counters
 
 ## Environment Variables
 
