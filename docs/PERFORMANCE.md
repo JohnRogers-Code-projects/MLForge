@@ -1,6 +1,6 @@
 # Performance Benchmarks
 
-MLForge is designed for low-latency model serving. This document details performance characteristics and benchmarks.
+ModelForge is designed for low-latency model serving. This document details performance characteristics and benchmarks.
 
 ## Single Prediction
 
@@ -30,11 +30,11 @@ MLForge is designed for low-latency model serving. This document details perform
 
 ## Caching Strategy
 
-MLForge uses Redis for prediction caching:
+ModelForge uses Redis for prediction caching:
 
 ```
-Cache Key: pred:{model_id}:{input_hash}
-TTL: 3600 seconds (configurable)
+Cache Key: prediction:{model_id}:{input_hash}
+TTL: 60 seconds (configurable via CACHE_PREDICTION_TTL)
 ```
 
 ### Cache Behavior
@@ -48,8 +48,10 @@ TTL: 3600 seconds (configurable)
 ```bash
 # Environment variables
 REDIS_URL=redis://localhost:6379/0
-CACHE_TTL_SECONDS=3600
-CACHE_ENABLED=true
+CACHE_TTL=3600                    # General cache TTL in seconds
+CACHE_PREDICTION_TTL=60           # Prediction cache TTL in seconds
+CACHE_KEY_PREFIX=modelforge       # Prefix for cache keys
+CACHE_PREDICTION_ENABLED=true     # Enable/disable prediction caching
 ```
 
 ## Optimization Tips
@@ -106,7 +108,7 @@ pytest tests/test_performance.py::TestPerformanceBenchmarks::test_single_predict
 
 ## Metrics Collection
 
-MLForge exposes the following performance metrics:
+ModelForge exposes the following performance metrics:
 
 ### Response Fields
 
@@ -130,10 +132,7 @@ Returns:
 {
   "status": "healthy",
   "database": "connected",
-  "cache": {
-    "status": "healthy",
-    "connected": true
-  }
+  "redis": "connected"
 }
 ```
 
@@ -145,7 +144,7 @@ The test suite includes performance assertions:
 |------|-----------|---------|
 | `test_single_prediction_latency_under_100ms` | < 100ms | Catch latency regressions |
 | `test_batch_prediction_throughput` | > 100 pred/sec | Ensure minimum throughput |
-| `test_cache_hit_latency_under_10ms` | < 50ms* | Verify cache effectiveness |
+| `test_cache_hit_latency_under_50ms` | < 50ms* | Verify cache effectiveness |
 
 *Note: The 50ms threshold is for test environments without real Redis. Production cache hits are typically < 10ms.
 
@@ -154,12 +153,23 @@ The test suite includes performance assertions:
 For detailed performance analysis:
 
 ```bash
-# Profile a prediction
-python -m cProfile -o profile.stats -c "
+# Profile a prediction using a script
+cat > profile_prediction.py << 'EOF'
 import asyncio
+from pathlib import Path
 from app.services.onnx import ONNXService
-# ... profiling code
-"
+
+async def profile_inference():
+    service = ONNXService()
+    model_path = Path("path/to/your/model.onnx")
+    input_data = {"input": [[1.0] * 10]}
+    result = service.run_inference(model_path, input_data)
+    print(f"Inference time: {result.inference_time_ms:.2f}ms")
+
+asyncio.run(profile_inference())
+EOF
+
+python -m cProfile -o profile.stats profile_prediction.py
 
 # Analyze results
 python -m pstats profile.stats
