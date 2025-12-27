@@ -13,7 +13,7 @@ will not crash the application, just result in cache bypasses.
 
 import json
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from redis.asyncio import ConnectionPool, Redis
@@ -404,7 +404,7 @@ class CacheService:
     async def get_or_set(
         self,
         key: str,
-        factory: Callable[[], Any],
+        factory: Callable[[], Awaitable[Any]],
         ttl: int | None = None,
     ) -> Any | None:
         """Get a value from cache, or compute and cache it.
