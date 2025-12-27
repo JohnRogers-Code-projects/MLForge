@@ -6,17 +6,15 @@ import onnx
 import pytest
 
 from app.services.onnx import (
-    ONNXService,
-    ONNXLoadError,
+    InferenceResult,
     ONNXInputError,
-    ONNXInferenceError,
+    ONNXLoadError,
+    ONNXService,
     TensorSchema,
     ValidationResult,
-    InferenceResult,
     get_onnx_service,
     set_onnx_service,
 )
-from tests.conftest import create_simple_onnx_model
 
 
 class TestONNXServiceValidation:
@@ -341,7 +339,7 @@ class TestONNXServiceInference:
         # Verify output = input + 1
         expected = [2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0]
         actual = result.outputs["output"][0]
-        for a, e in zip(actual, expected):
+        for a, e in zip(actual, expected, strict=True):
             assert abs(a - e) < 0.001, f"Expected {e}, got {a}"
 
     def test_run_inference_batch(
@@ -418,9 +416,7 @@ class TestONNXServiceSessionCaching:
         # Same object in memory
         assert session1 is session2
 
-    def test_clear_cache(
-        self, onnx_service: ONNXService, onnx_model_path: Path
-    ):
+    def test_clear_cache(self, onnx_service: ONNXService, onnx_model_path: Path):
         """Clear cache removes all sessions."""
         # Load a session
         onnx_service.get_cached_session(onnx_model_path)
@@ -430,9 +426,7 @@ class TestONNXServiceSessionCaching:
         onnx_service.clear_cache()
         assert len(onnx_service._session_cache) == 0
 
-    def test_remove_from_cache(
-        self, onnx_service: ONNXService, onnx_model_path: Path
-    ):
+    def test_remove_from_cache(self, onnx_service: ONNXService, onnx_model_path: Path):
         """Remove specific model from cache."""
         # Load a session
         onnx_service.get_cached_session(onnx_model_path)

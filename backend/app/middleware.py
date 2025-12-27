@@ -2,7 +2,7 @@
 
 import time
 import uuid
-from typing import Callable
+from collections.abc import Callable
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -15,9 +15,7 @@ logger = get_logger(__name__)
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     """Middleware for request/response logging with timing and request ID tracking."""
 
-    async def dispatch(
-        self, request: Request, call_next: Callable
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
         # Generate or extract request ID
         request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
 

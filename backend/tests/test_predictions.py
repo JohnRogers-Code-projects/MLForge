@@ -6,6 +6,7 @@ The test model computes output = input + 1, so we can verify exact outputs.
 
 import asyncio
 import io
+
 import onnx
 import pytest
 from httpx import AsyncClient
@@ -40,7 +41,9 @@ async def setup_ready_model(client: AsyncClient, valid_onnx_file: io.BytesIO) ->
 
     # Upload ONNX file
     files = {"file": ("model.onnx", valid_onnx_file, "application/octet-stream")}
-    upload_response = await client.post(f"/api/v1/models/{model_id}/upload", files=files)
+    upload_response = await client.post(
+        f"/api/v1/models/{model_id}/upload", files=files
+    )
     assert upload_response.status_code == 200
 
     # Validate model
@@ -83,7 +86,7 @@ class TestInferenceEndpoint:
         actual_output = data["output_data"]["output"]
         assert len(actual_output) == 1
         assert len(actual_output[0]) == 10
-        for actual, expected in zip(actual_output[0], expected_output[0]):
+        for actual, expected in zip(actual_output[0], expected_output[0], strict=True):
             assert abs(actual - expected) < 0.001, f"Expected {expected}, got {actual}"
 
     @pytest.mark.asyncio
@@ -361,9 +364,7 @@ class TestPredictionCRUDOperations:
     """Direct unit tests for Prediction CRUD operations."""
 
     @pytest.mark.asyncio
-    async def test_get_by_model(
-        self, client: AsyncClient, valid_onnx_file: io.BytesIO
-    ):
+    async def test_get_by_model(self, client: AsyncClient, valid_onnx_file: io.BytesIO):
         """Test getting predictions by model ID."""
         from app.crud import prediction_crud
         from app.database import get_db
@@ -412,8 +413,8 @@ class TestPredictionCRUDOperations:
     ):
         """Test creating prediction with model (without inference)."""
         from app.crud import prediction_crud
-        from app.schemas.prediction import PredictionCreate
         from app.database import get_db
+        from app.schemas.prediction import PredictionCreate
 
         model_id = await setup_ready_model(client, valid_onnx_file)
 

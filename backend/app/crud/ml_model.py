@@ -1,7 +1,6 @@
 """CRUD operations for ML models."""
 
 import re
-from typing import Optional
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,7 +19,11 @@ def parse_semver(version: str) -> tuple[int, int, int, str]:
     """
     match = re.match(r"^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$", version)
     if match:
-        major, minor, patch = int(match.group(1)), int(match.group(2)), int(match.group(3))
+        major, minor, patch = (
+            int(match.group(1)),
+            int(match.group(2)),
+            int(match.group(3)),
+        )
         prerelease = match.group(4) or ""
         return (major, minor, patch, prerelease)
     # Non-semver: sort alphabetically after all semver versions
@@ -68,11 +71,9 @@ class CRUDModel(CRUDBase[MLModel, ModelCreate, ModelUpdate]):
         db: AsyncSession,
         *,
         name: str,
-    ) -> Optional[MLModel]:
+    ) -> MLModel | None:
         """Get a model by name."""
-        result = await db.execute(
-            select(MLModel).where(MLModel.name == name)
-        )
+        result = await db.execute(select(MLModel).where(MLModel.name == name))
         return result.scalar_one_or_none()
 
     async def get_by_name_and_version(
@@ -81,7 +82,7 @@ class CRUDModel(CRUDBase[MLModel, ModelCreate, ModelUpdate]):
         *,
         name: str,
         version: str,
-    ) -> Optional[MLModel]:
+    ) -> MLModel | None:
         """Get a model by name and version."""
         result = await db.execute(
             select(MLModel).where(
@@ -114,7 +115,7 @@ class CRUDModel(CRUDBase[MLModel, ModelCreate, ModelUpdate]):
         *,
         model_id: str,
         status: ModelStatus,
-    ) -> Optional[MLModel]:
+    ) -> MLModel | None:
         """Update model status."""
         model = await self.get(db, model_id)
         if model:
@@ -134,10 +135,7 @@ class CRUDModel(CRUDBase[MLModel, ModelCreate, ModelUpdate]):
         Uses semantic version comparison to sort versions correctly
         (e.g., 2.0.0 > 1.10.0 > 1.9.0).
         """
-        result = await db.execute(
-            select(MLModel)
-            .where(MLModel.name == name)
-        )
+        result = await db.execute(select(MLModel).where(MLModel.name == name))
         models = list(result.scalars().all())
         # Sort by semantic version (newest first)
         models.sort(key=lambda m: parse_semver(m.version), reverse=True)
@@ -149,7 +147,7 @@ class CRUDModel(CRUDBase[MLModel, ModelCreate, ModelUpdate]):
         *,
         name: str,
         ready_only: bool = False,
-    ) -> Optional[MLModel]:
+    ) -> MLModel | None:
         """Get the latest version of a model by name.
 
         Args:
@@ -181,9 +179,7 @@ class CRUDModel(CRUDBase[MLModel, ModelCreate, ModelUpdate]):
     ) -> int:
         """Count all versions of a model by name."""
         result = await db.execute(
-            select(func.count())
-            .select_from(MLModel)
-            .where(MLModel.name == name)
+            select(func.count()).select_from(MLModel).where(MLModel.name == name)
         )
         return result.scalar() or 0
 

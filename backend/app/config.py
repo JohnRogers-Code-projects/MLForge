@@ -1,7 +1,6 @@
 """Application configuration using Pydantic Settings."""
 
 from functools import lru_cache
-from typing import Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -27,7 +26,9 @@ class Settings(BaseSettings):
     api_prefix: str = "/api/v1"
 
     # Database
-    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/modelforge"
+    database_url: str = (
+        "postgresql+asyncpg://postgres:postgres@localhost:5432/modelforge"
+    )
     database_echo: bool = False
 
     # Redis
@@ -45,10 +46,14 @@ class Settings(BaseSettings):
 
     # Model-specific cache settings
     cache_model_ttl: int = 300  # Model metadata TTL: 5 minutes
-    cache_model_list_ttl: int = 60  # Model list TTL: 1 minute (shorter for fresher lists)
+    cache_model_list_ttl: int = (
+        60  # Model list TTL: 1 minute (shorter for fresher lists)
+    )
 
     # Prediction cache settings
-    cache_prediction_ttl: int = 60  # Prediction TTL: 1 minute (short, model outputs may change)
+    cache_prediction_ttl: int = (
+        60  # Prediction TTL: 1 minute (short, model outputs may change)
+    )
     cache_prediction_enabled: bool = True  # Enable prediction caching
 
     # Security
@@ -62,7 +67,9 @@ class Settings(BaseSettings):
     # Celery settings
     celery_broker_url: str = "redis://localhost:6379/0"
     celery_result_backend: str = "redis://localhost:6379/0"
-    celery_task_soft_time_limit: int = 300  # 5 minutes soft limit (raises SoftTimeLimitExceeded)
+    celery_task_soft_time_limit: int = (
+        300  # 5 minutes soft limit (raises SoftTimeLimitExceeded)
+    )
     celery_task_time_limit: int = 600  # 10 minutes hard limit (kills task)
     celery_result_expires: int = 86400  # Results expire after 24 hours
     celery_worker_concurrency: int = 2  # Number of worker processes
@@ -72,7 +79,7 @@ class Settings(BaseSettings):
     job_max_retries: int = 3  # Max retry attempts for failed tasks
 
     # Observability
-    sentry_dsn: Optional[str] = None  # Set to enable Sentry error tracking
+    sentry_dsn: str | None = None  # Set to enable Sentry error tracking
 
     @property
     def max_model_size_bytes(self) -> int:

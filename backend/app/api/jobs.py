@@ -139,7 +139,10 @@ _POLL_INTERVAL_SECONDS = 0.5
     "/{job_id}/result",
     response_model=None,  # Disable auto-generation since we return different types
     responses={
-        200: {"model": JobResultResponse, "description": "Job completed (success or failure)"},
+        200: {
+            "model": JobResultResponse,
+            "description": "Job completed (success or failure)",
+        },
         202: {"description": "Job still processing"},
         404: {"description": "Job not found"},
     },

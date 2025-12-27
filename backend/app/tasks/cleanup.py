@@ -5,15 +5,15 @@ jobs based on the configured retention period.
 """
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import delete
+from sqlalchemy.orm import Session
 
 from app.celery import celery_app
 from app.config import settings
 from app.database import sync_engine
 from app.models.job import Job, JobStatus
-from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ def cleanup_old_jobs() -> dict:
         Dict with count of deleted jobs and any errors
     """
     retention_days = settings.job_retention_days
-    cutoff_date = datetime.now(timezone.utc) - timedelta(days=retention_days)
+    cutoff_date = datetime.now(UTC) - timedelta(days=retention_days)
 
     logger.info(
         f"Starting job cleanup: removing jobs completed before {cutoff_date} "
@@ -47,12 +47,9 @@ def cleanup_old_jobs() -> dict:
     with _get_sync_session() as db:
         try:
             # Delete old jobs and get the actual count from the result
-            delete_query = (
-                delete(Job)
-                .where(
-                    Job.status.in_(_CLEANUP_STATUSES),
-                    Job.completed_at < cutoff_date,
-                )
+            delete_query = delete(Job).where(
+                Job.status.in_(_CLEANUP_STATUSES),
+                Job.completed_at < cutoff_date,
             )
             result = db.execute(delete_query)
             deleted_count = result.rowcount

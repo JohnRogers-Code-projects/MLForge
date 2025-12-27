@@ -2,10 +2,20 @@
 
 import enum
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
-from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, String, Text, Uuid, func
+from sqlalchemy import (
+    DateTime,
+    Enum,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    Uuid,
+    func,
+)
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -66,21 +76,21 @@ class Job(Base):
 
     # Input/Output
     input_data: Mapped[dict] = mapped_column(JSON, nullable=False)
-    output_data: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    output_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     # Execution details
-    celery_task_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    worker_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    celery_task_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    worker_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     retries: Mapped[int] = mapped_column(Integer, default=0)
     max_retries: Mapped[int] = mapped_column(Integer, default=3)
 
     # Error handling
-    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    error_traceback: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error_traceback: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Performance
-    inference_time_ms: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    queue_time_ms: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    inference_time_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    queue_time_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
@@ -88,11 +98,11 @@ class Job(Base):
         server_default=func.now(),
         nullable=False,
     )
-    started_at: Mapped[Optional[datetime]] = mapped_column(
+    started_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )
-    completed_at: Mapped[Optional[datetime]] = mapped_column(
+    completed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
     )

@@ -1,23 +1,22 @@
 """Pytest fixtures for testing."""
 
 import asyncio
+from collections.abc import AsyncGenerator, Generator
 from pathlib import Path
-from typing import AsyncGenerator, Generator
 
 import onnx
-from onnx import TensorProto, helper
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from onnx import TensorProto, helper
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.config import Settings
 from app.database import Base, get_db
 from app.main import app
-from app.services.storage import LocalStorageService, get_storage_service
-from app.services.onnx import ONNXService, get_onnx_service, reset_onnx_service
 from app.services.cache import CacheService, get_cache_service
-
+from app.services.onnx import ONNXService, reset_onnx_service
+from app.services.storage import LocalStorageService, get_storage_service
 
 # Use SQLite for testing
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"
@@ -88,7 +87,9 @@ async def test_cache() -> CacheService:
 
 @pytest_asyncio.fixture(scope="function")
 async def client(
-    db_session: AsyncSession, test_storage: LocalStorageService, test_cache: CacheService
+    db_session: AsyncSession,
+    test_storage: LocalStorageService,
+    test_cache: CacheService,
 ) -> AsyncGenerator[AsyncClient, None]:
     """Create test HTTP client with overridden dependencies."""
 
@@ -136,9 +137,7 @@ def create_simple_onnx_model(
         input_shape = [None, 10]
 
     # Convert None to string for dynamic dimensions
-    onnx_input_shape = [
-        d if d is not None else "batch_size" for d in input_shape
-    ]
+    onnx_input_shape = [d if d is not None else "batch_size" for d in input_shape]
 
     # Define input
     X = helper.make_tensor_value_info(input_name, TensorProto.FLOAT, onnx_input_shape)

@@ -13,9 +13,8 @@ will not crash the application, just result in cache bypasses.
 
 import json
 import logging
-from typing import Any, Optional
+from typing import Any
 
-import redis.asyncio as redis
 from redis.asyncio import ConnectionPool, Redis
 from redis.exceptions import RedisError
 
@@ -45,10 +44,10 @@ class CacheService:
 
     def __init__(
         self,
-        redis_url: Optional[str] = None,
-        prefix: Optional[str] = None,
-        default_ttl: Optional[int] = None,
-        enabled: Optional[bool] = None,
+        redis_url: str | None = None,
+        prefix: str | None = None,
+        default_ttl: int | None = None,
+        enabled: bool | None = None,
     ):
         """Initialize cache service.
 
@@ -63,8 +62,8 @@ class CacheService:
         self.default_ttl = default_ttl or settings.cache_ttl
 
         self._redis_url = redis_url or settings.redis_url
-        self._pool: Optional[ConnectionPool] = None
-        self._client: Optional[Redis] = None
+        self._pool: ConnectionPool | None = None
+        self._client: Redis | None = None
         self._connected = False
 
     async def connect(self) -> bool:
@@ -177,7 +176,7 @@ class CacheService:
         """Alias for make_key (deprecated, use make_key instead)."""
         return self.make_key(key)
 
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         """Get a value from cache.
 
         Args:
@@ -208,7 +207,7 @@ class CacheService:
         self,
         key: str,
         value: Any,
-        ttl: Optional[int] = None,
+        ttl: int | None = None,
     ) -> bool:
         """Set a value in cache.
 
@@ -311,7 +310,7 @@ class CacheService:
             logger.warning(f"Cache clear_prefix failed for '{prefix}': {e}")
             return 0
 
-    async def incr(self, key: str) -> Optional[int]:
+    async def incr(self, key: str) -> int | None:
         """Increment a counter in cache.
 
         Creates the key with value 1 if it doesn't exist.
@@ -331,7 +330,7 @@ class CacheService:
             logger.warning(f"Cache incr failed for key '{key}': {e}")
             return None
 
-    async def get_raw(self, key: str) -> Optional[str]:
+    async def get_raw(self, key: str) -> str | None:
         """Get a raw string value from cache without JSON deserialization.
 
         Useful for counters and other non-JSON values.
@@ -405,8 +404,8 @@ class CacheService:
         self,
         key: str,
         factory: callable,
-        ttl: Optional[int] = None,
-    ) -> Optional[Any]:
+        ttl: int | None = None,
+    ) -> Any | None:
         """Get a value from cache, or compute and cache it.
 
         This is a convenience method that combines get and set.
@@ -439,7 +438,7 @@ class CacheService:
 
 
 # Singleton instance for dependency injection
-_cache_service: Optional[CacheService] = None
+_cache_service: CacheService | None = None
 
 
 async def get_cache_service() -> CacheService:

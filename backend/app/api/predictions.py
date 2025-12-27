@@ -80,7 +80,7 @@ async def create_prediction(
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to access model file: {e}",
-            )
+            ) from e
 
         # Run inference
         try:
@@ -91,17 +91,17 @@ async def create_prediction(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=str(e),
-            )
+            ) from e
         except ONNXLoadError as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to load model: {e}",
-            )
+            ) from e
         except ONNXInferenceError as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Inference failed: {e}",
-            )
+            ) from e
 
         # Cache the result for future requests
         await prediction_cache.set_prediction(

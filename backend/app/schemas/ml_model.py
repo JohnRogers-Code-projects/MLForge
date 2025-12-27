@@ -1,7 +1,7 @@
 """Pydantic schemas for ML model operations."""
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -12,14 +12,14 @@ class ModelBase(BaseModel):
     """Base schema for ML model."""
 
     name: str = Field(..., min_length=1, max_length=255, description="Model name")
-    description: Optional[str] = Field(None, description="Model description")
+    description: str | None = Field(None, description="Model description")
     version: str = Field(default="1.0.0", max_length=50, description="Model version")
 
 
 class ModelCreate(ModelBase):
     """Schema for creating a new model."""
 
-    model_metadata: Optional[dict[str, Any]] = Field(
+    model_metadata: dict[str, Any] | None = Field(
         None,
         description="Additional metadata for the model",
     )
@@ -30,11 +30,11 @@ class ModelCreate(ModelBase):
 class ModelUpdate(BaseModel):
     """Schema for updating a model."""
 
-    name: Optional[str] = Field(None, min_length=1, max_length=255)
-    description: Optional[str] = None
-    version: Optional[str] = Field(None, max_length=50)
-    status: Optional[ModelStatus] = None
-    model_metadata: Optional[dict[str, Any]] = None
+    name: str | None = Field(None, min_length=1, max_length=255)
+    description: str | None = None
+    version: str | None = Field(None, max_length=50)
+    status: ModelStatus | None = None
+    model_metadata: dict[str, Any] | None = None
 
     model_config = {"protected_namespaces": ()}
 
@@ -44,11 +44,11 @@ class ModelResponse(ModelBase):
 
     id: str
     status: ModelStatus
-    file_path: Optional[str] = None
-    file_size_bytes: Optional[int] = None
-    input_schema: Optional[list[dict[str, Any]]] = None
-    output_schema: Optional[list[dict[str, Any]]] = None
-    model_metadata: Optional[dict[str, Any]] = None
+    file_path: str | None = None
+    file_size_bytes: int | None = None
+    input_schema: list[dict[str, Any]] | None = None
+    output_schema: list[dict[str, Any]] | None = None
+    model_metadata: dict[str, Any] | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -83,7 +83,7 @@ class TensorSchemaResponse(BaseModel):
 
     name: str
     dtype: str
-    shape: list[Optional[int]]
+    shape: list[int | None]
 
 
 class ModelValidateResponse(BaseModel):
@@ -92,10 +92,10 @@ class ModelValidateResponse(BaseModel):
     id: str
     valid: bool
     status: ModelStatus
-    input_schema: Optional[list[TensorSchemaResponse]] = None
-    output_schema: Optional[list[TensorSchemaResponse]] = None
-    model_metadata: Optional[dict[str, Any]] = None
-    error_message: Optional[str] = None
+    input_schema: list[TensorSchemaResponse] | None = None
+    output_schema: list[TensorSchemaResponse] | None = None
+    model_metadata: dict[str, Any] | None = None
+    error_message: str | None = None
     message: str = "Model validated successfully"
 
     model_config = {"protected_namespaces": ()}
@@ -118,4 +118,4 @@ class ModelVersionsResponse(BaseModel):
     name: str
     versions: list[ModelVersionSummary]
     total: int
-    latest_version: Optional[str] = None
+    latest_version: str | None = None

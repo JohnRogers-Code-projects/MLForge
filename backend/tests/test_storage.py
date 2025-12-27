@@ -1,15 +1,18 @@
 """Tests for storage service."""
 
 import io
-import pytest
 from pathlib import Path
 
+import pytest
+
+from app.services.storage import (
+    FileNotFoundError as StorageFileNotFoundError,
+)
 from app.services.storage import (
     LocalStorageService,
-    StorageService,
     StorageError,
-    FileNotFoundError as StorageFileNotFoundError,
     StorageFullError,
+    StorageService,
 )
 
 
@@ -144,7 +147,10 @@ class TestLocalStorageService:
 
     @pytest.mark.asyncio
     async def test_get_path(
-        self, storage_service: LocalStorageService, sample_file: io.BytesIO, tmp_path: Path
+        self,
+        storage_service: LocalStorageService,
+        sample_file: io.BytesIO,
+        tmp_path: Path,
     ):
         """Test getting the filesystem path of a stored file."""
         await storage_service.save(sample_file, "test.onnx")
@@ -208,7 +214,7 @@ class TestLocalStorageService:
         new_path = tmp_path / "new" / "nested" / "storage"
         assert not new_path.exists()
 
-        service = LocalStorageService(base_path=str(new_path))
+        LocalStorageService(base_path=str(new_path))
 
         assert new_path.exists()
         assert new_path.is_dir()

@@ -8,10 +8,11 @@ Tests cover:
 - Key namespacing
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.cache import CacheService, set_cache_service
+import pytest
+
+from app.services.cache import CacheService
 
 
 class TestCacheServiceDisabled:
@@ -91,7 +92,9 @@ class TestCacheServiceWithMockedRedis:
         mock.set = AsyncMock(return_value=True)
         mock.delete = AsyncMock(return_value=1)
         mock.exists = AsyncMock(return_value=1)
-        mock.info = AsyncMock(return_value={"redis_version": "7.0.0", "uptime_in_seconds": 1000})
+        mock.info = AsyncMock(
+            return_value={"redis_version": "7.0.0", "uptime_in_seconds": 1000}
+        )
         mock.close = AsyncMock()
         return mock
 
@@ -458,6 +461,7 @@ class TestCacheServiceClearPrefix:
     @pytest.mark.asyncio
     async def test_clear_prefix_deletes_matching_keys(self, mock_redis):
         """Clear prefix deletes all keys with matching prefix."""
+
         # Mock scan_iter to return some keys
         async def mock_scan_iter(**kwargs):
             for key in ["test:prefix:key1", "test:prefix:key2"]:
@@ -480,6 +484,7 @@ class TestCacheServiceClearPrefix:
     @pytest.mark.asyncio
     async def test_clear_prefix_no_matching_keys(self, mock_redis):
         """Clear prefix returns 0 when no keys match."""
+
         # Mock scan_iter to return no keys (empty async generator)
         async def mock_scan_iter(**kwargs):
             if False:
@@ -653,9 +658,7 @@ class TestCacheServiceDeleteKeys:
         result = await cache.delete_keys("key1", "key2", "key3")
 
         assert result == 3
-        mock_redis.delete.assert_called_once_with(
-            "test:key1", "test:key2", "test:key3"
-        )
+        mock_redis.delete.assert_called_once_with("test:key1", "test:key2", "test:key3")
 
     @pytest.mark.asyncio
     async def test_delete_keys_empty_keys(self):
@@ -704,10 +707,11 @@ class TestCacheServiceConnect:
     @pytest.mark.asyncio
     async def test_connect_success(self):
         """Connect establishes connection successfully."""
-        from redis.asyncio import ConnectionPool, Redis
 
-        with patch("app.services.cache.ConnectionPool") as mock_pool_class, \
-             patch("app.services.cache.Redis") as mock_redis_class:
+        with (
+            patch("app.services.cache.ConnectionPool") as mock_pool_class,
+            patch("app.services.cache.Redis") as mock_redis_class,
+        ):
             mock_pool = MagicMock()
             mock_pool_class.from_url.return_value = mock_pool
 
@@ -727,8 +731,10 @@ class TestCacheServiceConnect:
         """Connect returns False on connection failure."""
         from redis.exceptions import RedisError
 
-        with patch("app.services.cache.ConnectionPool") as mock_pool_class, \
-             patch("app.services.cache.Redis") as mock_redis_class:
+        with (
+            patch("app.services.cache.ConnectionPool") as mock_pool_class,
+            patch("app.services.cache.Redis") as mock_redis_class,
+        ):
             mock_pool = MagicMock()
             mock_pool_class.from_url.return_value = mock_pool
 

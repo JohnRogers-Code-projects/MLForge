@@ -1,7 +1,7 @@
 """Pydantic schemas for prediction operations."""
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -10,7 +10,7 @@ class PredictionCreate(BaseModel):
     """Schema for creating a new prediction."""
 
     input_data: dict[str, Any] = Field(..., description="Input data for inference")
-    request_id: Optional[str] = Field(None, description="Optional request tracking ID")
+    request_id: str | None = Field(None, description="Optional request tracking ID")
     skip_cache: bool = Field(
         False,
         description="Skip cache lookup and force fresh inference. "
@@ -24,8 +24,8 @@ class PredictionResponse(BaseModel):
     id: str
     model_id: str
     input_data: dict[str, Any]
-    output_data: Optional[dict[str, Any]] = None
-    inference_time_ms: Optional[float] = None
+    output_data: dict[str, Any] | None = None
+    inference_time_ms: float | None = None
     cached: bool = False
     created_at: datetime
 

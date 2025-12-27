@@ -51,7 +51,9 @@ class TestCeleryConfiguration:
         from app.celery import celery_app
         from app.config import settings
 
-        assert celery_app.conf.task_soft_time_limit == settings.celery_task_soft_time_limit
+        assert (
+            celery_app.conf.task_soft_time_limit == settings.celery_task_soft_time_limit
+        )
         assert celery_app.conf.task_time_limit == settings.celery_task_time_limit
 
     def test_celery_result_expiration(self):

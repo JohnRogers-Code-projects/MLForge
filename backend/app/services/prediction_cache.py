@@ -17,7 +17,7 @@ Design notes:
 import hashlib
 import json
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from app.config import settings
 from app.services.cache import CacheService
@@ -63,8 +63,8 @@ class PredictionCacheResult:
     def __init__(
         self,
         hit: bool,
-        output_data: Optional[dict[str, Any]] = None,
-        inference_time_ms: Optional[float] = None,
+        output_data: dict[str, Any] | None = None,
+        inference_time_ms: float | None = None,
     ):
         self.hit = hit
         self.output_data = output_data

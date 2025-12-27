@@ -1,9 +1,9 @@
 """Tests for job cleanup task."""
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from app.models.job import JobStatus
-from app.tasks.cleanup import cleanup_old_jobs, _CLEANUP_STATUSES
+from app.tasks.cleanup import _CLEANUP_STATUSES, cleanup_old_jobs
 
 
 class TestCleanupTask:

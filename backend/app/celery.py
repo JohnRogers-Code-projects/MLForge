@@ -36,7 +36,9 @@ def create_celery_app() -> Celery:
     # Task execution settings
     app.conf.task_acks_late = True  # Ack after task completes (not when received)
     app.conf.task_reject_on_worker_lost = True  # Requeue if worker dies mid-task
-    app.conf.worker_prefetch_multiplier = 1  # One task at a time per worker (for long tasks)
+    app.conf.worker_prefetch_multiplier = (
+        1  # One task at a time per worker (for long tasks)
+    )
 
     # Time limits (can be overridden per-task)
     app.conf.task_soft_time_limit = settings.celery_task_soft_time_limit

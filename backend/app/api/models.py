@@ -17,10 +17,9 @@ from app.schemas.ml_model import (
     ModelVersionSummary,
     TensorSchemaResponse,
 )
-from app.services.storage import StorageError, StorageFullError
-from app.services.onnx import ONNXError
 from app.services.model_cache import ModelCache, model_to_cache_dict
 from app.services.prediction_cache import PredictionCache
+from app.services.storage import StorageError, StorageFullError
 
 router = APIRouter()
 
@@ -271,7 +270,11 @@ async def upload_model_file(
     # Validate file extension
     allowed_extensions = {".onnx"}
     if file.filename:
-        file_ext = "." + file.filename.rsplit(".", 1)[-1].lower() if "." in file.filename else ""
+        file_ext = (
+            "." + file.filename.rsplit(".", 1)[-1].lower()
+            if "." in file.filename
+            else ""
+        )
         if file_ext not in allowed_extensions:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -304,12 +307,12 @@ async def upload_model_file(
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail=str(e),
-        )
+        ) from e
     except StorageError as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Storage error: {e}",
-        )
+        ) from e
 
     # Update model record
     try:
@@ -391,7 +394,7 @@ async def validate_model(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to access model file: {e}",
-        )
+        ) from e
 
     # Validate the ONNX model
     result = onnx_service.validate(file_path)

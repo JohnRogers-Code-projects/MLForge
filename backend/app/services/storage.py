@@ -6,11 +6,9 @@ allows for easy swapping to cloud storage (S3, GCS, Azure Blob) in the future.
 """
 
 import hashlib
-import os
-import shutil
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import BinaryIO, Optional
+from typing import BinaryIO
 
 from app.config import settings
 
@@ -50,7 +48,7 @@ class StorageService(ABC):
         self,
         file: BinaryIO,
         filename: str,
-        max_size_bytes: Optional[int] = None,
+        max_size_bytes: int | None = None,
     ) -> tuple[str, int, str]:
         """Save a file to storage.
 
@@ -155,8 +153,8 @@ class LocalStorageService(StorageService):
 
     def __init__(
         self,
-        base_path: Optional[str] = None,
-        max_size_mb: Optional[int] = None,
+        base_path: str | None = None,
+        max_size_mb: int | None = None,
     ):
         """Initialize local storage service.
 
@@ -174,7 +172,7 @@ class LocalStorageService(StorageService):
         self,
         file: BinaryIO,
         filename: str,
-        max_size_bytes: Optional[int] = None,
+        max_size_bytes: int | None = None,
     ) -> tuple[str, int, str]:
         """Save a file to local filesystem.
 
@@ -204,7 +202,7 @@ class LocalStorageService(StorageService):
             total_size += len(chunk)
             if total_size > max_size:
                 raise StorageFullError(
-                    f"File exceeds maximum size of {max_size / (1024*1024):.1f}MB"
+                    f"File exceeds maximum size of {max_size / (1024 * 1024):.1f}MB"
                 )
 
             chunks.append(chunk)
@@ -279,7 +277,7 @@ class LocalStorageService(StorageService):
 
 
 # Singleton instance for dependency injection
-_storage_service: Optional[StorageService] = None
+_storage_service: StorageService | None = None
 
 
 def get_storage_service() -> StorageService:
