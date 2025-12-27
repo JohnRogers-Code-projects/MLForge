@@ -50,7 +50,7 @@ TTL: 60 seconds (configurable via CACHE_PREDICTION_TTL)
 REDIS_URL=redis://localhost:6379/0
 CACHE_TTL=3600                    # General cache TTL in seconds
 CACHE_PREDICTION_TTL=60           # Prediction cache TTL in seconds
-CACHE_KEY_PREFIX=modelforge       # Prefix for cache keys
+CACHE_KEY_PREFIX=modelforge:      # Prefix for cache keys (note trailing colon)
 CACHE_PREDICTION_ENABLED=true     # Enable/disable prediction caching
 ```
 
@@ -114,17 +114,22 @@ ModelForge exposes the following performance metrics:
 
 ```json
 {
-  "prediction_id": "uuid",
-  "output_data": {...},
+  "id": "a3f2c1d4-5678-90ab-cdef-1234567890ab",
+  "model_id": "b4e3d2c1-6789-01bc-defa-2345678901bc",
+  "input_data": {"input": [[1.0, 2.0, 3.0]]},
+  "output_data": {"output": [[0.85]]},
   "inference_time_ms": 12.5,
-  "cached": false
+  "cached": false,
+  "created_at": "2025-01-15T12:34:56.789Z"
 }
 ```
 
 ### Health Endpoint
 
+All API endpoints use the `/api/v1` prefix.
+
 ```bash
-GET /health
+GET /api/v1/health
 ```
 
 Returns:

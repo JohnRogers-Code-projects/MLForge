@@ -161,14 +161,14 @@ class TestPerformanceBenchmarks:
     async def test_cache_hit_latency_under_10ms(
         self, client: AsyncClient, valid_onnx_file: io.BytesIO
     ):
-        """Verify cache hit returns in under 10ms (production) / 50ms (CI).
+        """Verify warm prediction latency stays under 50ms in CI.
 
         CLAUDE.md requirement: test_cache_hit_latency_under_10ms
-        Note: Uses 50ms threshold in CI environments without real Redis.
-        Production environments with Redis typically see < 10ms latency.
 
-        This test uses a mock cache to simulate cache hit behavior,
-        since the default test fixture has caching disabled.
+        In production with Redis enabled, true cache hits are expected to be
+        under 10ms. However, the default test fixture has caching disabled
+        (no Redis), so this test measures warm model latency without any
+        actual caching and uses a conservative 50ms threshold for CI.
         """
         # Create a model and make initial prediction to establish cache
         model_id = await setup_ready_model(client, valid_onnx_file)
