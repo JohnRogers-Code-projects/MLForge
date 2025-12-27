@@ -41,11 +41,13 @@ def compare_versions(v1: str, v2: str) -> int:
     parsed1 = parse_semver(v1)
     parsed2 = parse_semver(v2)
 
-    # Compare major, minor, patch
-    for i in range(3):
-        if parsed1[i] < parsed2[i]:
+    # Compare major, minor, patch (first 3 elements are always ints)
+    major1, minor1, patch1, _ = parsed1
+    major2, minor2, patch2, _ = parsed2
+    for v1_part, v2_part in [(major1, major2), (minor1, minor2), (patch1, patch2)]:
+        if v1_part < v2_part:
             return -1
-        if parsed1[i] > parsed2[i]:
+        if v1_part > v2_part:
             return 1
 
     # If equal so far, compare prerelease

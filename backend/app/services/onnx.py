@@ -396,7 +396,7 @@ class ONNXService:
             "tensor(uint64)": np.uint64,
             "tensor(bool)": np.bool_,
         }
-        return dtype_map.get(onnx_type, np.float32)
+        return np.dtype(dtype_map.get(onnx_type, np.float32))
 
     def clear_cache(self) -> None:
         """Clear all cached sessions."""
@@ -569,7 +569,7 @@ class ONNXService:
         Returns:
             List of dimensions with None for dynamic axes
         """
-        result = []
+        result: list[int | None] = []
         for dim in shape:
             if isinstance(dim, int):
                 result.append(dim)

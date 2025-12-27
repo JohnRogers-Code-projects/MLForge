@@ -26,7 +26,9 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         start_time = time.perf_counter()
 
         # Get client IP (check X-Forwarded-For for proxied requests)
-        client_ip = request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+        client_ip: str | None = (
+            request.headers.get("X-Forwarded-For", "").split(",")[0].strip() or None
+        )
         if not client_ip:
             client_ip = request.client.host if request.client else None
 
