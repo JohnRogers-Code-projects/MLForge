@@ -49,6 +49,7 @@ For detailed architecture documentation, see [docs/ARCHITECTURE.md](docs/ARCHITE
 
 - Docker & Docker Compose
 - Python 3.11+ (for local development)
+- Node.js 18+ (for frontend development)
 
 ### Running with Docker
 
@@ -158,6 +159,7 @@ ModelForge/
 │   │   ├── services/     # Business logic (ONNX, cache, storage)
 │   │   ├── tasks/        # Celery async tasks
 │   │   ├── config.py     # Settings
+│   │   ├── database.py   # DB connection
 │   │   └── main.py       # FastAPI app
 │   ├── alembic/          # Database migrations
 │   ├── tests/            # Pytest tests
