@@ -735,3 +735,119 @@ class TestModelCRUDOperations:
             assert "crud-unique-a" in names
             assert "crud-unique-b" in names
             break
+
+
+class TestCLAUDEMDRequirementsWorkItem2:
+    """Tests verifying CLAUDE.md Work Item 2 requirements.
+
+    These tests use the exact names specified in CLAUDE.md to ensure
+    all required test cases are present and passing.
+
+    NOTE: Some tests intentionally duplicate functionality from other test
+    functions. This duplication is deliberate for requirement traceability -
+    CLAUDE.md specifies these exact test names must exist, making compliance
+    auditing straightforward.
+    """
+
+    @pytest.mark.asyncio
+    async def test_upload_onnx_model(
+        self, client: AsyncClient, sample_onnx_file: io.BytesIO
+    ):
+        """Verify ONNX model can be uploaded successfully.
+
+        CLAUDE.md requirement: test_upload_onnx_model
+        """
+        # Create model
+        create_response = await client.post(
+            "/api/v1/models",
+            json={"name": "claudemd-upload-test", "version": "1.0.0"},
+        )
+        assert create_response.status_code == 201
+        model_id = create_response.json()["id"]
+
+        # Upload ONNX file
+        files = {"file": ("model.onnx", sample_onnx_file, "application/octet-stream")}
+        response = await client.post(f"/api/v1/models/{model_id}/upload", files=files)
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "uploaded"
+
+    @pytest.mark.asyncio
+    async def test_upload_rejects_invalid_file(self, client: AsyncClient):
+        """Verify upload rejects files with invalid extension.
+
+        CLAUDE.md requirement: test_upload_rejects_invalid_file
+        """
+        # Create model
+        create_response = await client.post(
+            "/api/v1/models",
+            json={"name": "claudemd-invalid-ext-test", "version": "1.0.0"},
+        )
+        assert create_response.status_code == 201
+        model_id = create_response.json()["id"]
+
+        # Try to upload non-ONNX file
+        content = io.BytesIO(b"not an onnx file")
+        files = {"file": ("model.pkl", content, "application/octet-stream")}
+        response = await client.post(f"/api/v1/models/{model_id}/upload", files=files)
+
+        assert response.status_code == 400
+        assert "Invalid file extension" in response.json()["detail"]
+
+    @pytest.mark.asyncio
+    async def test_upload_stores_metadata(
+        self, client: AsyncClient, sample_onnx_file: io.BytesIO
+    ):
+        """Verify upload stores file metadata (path, size, hash).
+
+        CLAUDE.md requirement: test_upload_stores_metadata
+        """
+        # Create model
+        create_response = await client.post(
+            "/api/v1/models",
+            json={"name": "claudemd-metadata-test", "version": "1.0.0"},
+        )
+        assert create_response.status_code == 201
+        model_id = create_response.json()["id"]
+
+        # Upload ONNX file
+        files = {"file": ("model.onnx", sample_onnx_file, "application/octet-stream")}
+        response = await client.post(f"/api/v1/models/{model_id}/upload", files=files)
+
+        assert response.status_code == 200
+        data = response.json()
+        # Verify metadata is stored
+        assert "file_path" in data and data["file_path"]
+        assert "file_size_bytes" in data and data["file_size_bytes"] > 0
+        assert "file_hash" in data and len(data["file_hash"]) == 64  # SHA-256
+
+    @pytest.mark.asyncio
+    async def test_list_models_returns_uploaded(
+        self, client: AsyncClient, sample_onnx_file: io.BytesIO
+    ):
+        """Verify uploaded models appear in model listing.
+
+        CLAUDE.md requirement: test_list_models_returns_uploaded
+        """
+        # Create and upload a model
+        create_response = await client.post(
+            "/api/v1/models",
+            json={"name": "claudemd-list-test", "version": "1.0.0"},
+        )
+        assert create_response.status_code == 201
+        model_id = create_response.json()["id"]
+
+        files = {"file": ("model.onnx", sample_onnx_file, "application/octet-stream")}
+        await client.post(f"/api/v1/models/{model_id}/upload", files=files)
+
+        # List models and verify our model appears
+        list_response = await client.get("/api/v1/models")
+        assert list_response.status_code == 200
+
+        models = list_response.json()["items"]
+        model_ids = [m["id"] for m in models]
+        assert model_id in model_ids
+
+        # Verify the model has uploaded status
+        our_model = next(m for m in models if m["id"] == model_id)
+        assert our_model["status"] == "uploaded"
