@@ -24,7 +24,7 @@ Generic ONNX model serving platform. Upload any model, get predictions via REST 
                             │          │        │       │
                     ┌───────▼───┐ ┌────▼────┐ ┌─▼─┐ ┌───▼───┐
                     │ PostgreSQL│ │  ONNX   │ │   │ │ Redis │
-                    │ (metadata)│ │ Runtime │ │ C │ │(cache)│
+                    │(metadata) │ │ Runtime │ │ C │ │(cache)│
                     └───────────┘ └────┬────┘ │ e │ └───────┘
                                        │      │ l │
                                   ┌────▼────┐ │ e │
@@ -173,6 +173,7 @@ ModelForge/
 
 ### Health
 - `GET /api/v1/health` - Health check with service status
+- `GET /api/v1/health/celery` - Detailed Celery worker health
 - `GET /api/v1/ready` - Kubernetes readiness probe
 - `GET /api/v1/live` - Kubernetes liveness probe
 - `GET /api/v1/metrics` - Application metrics
@@ -181,9 +182,12 @@ ModelForge/
 - `POST /api/v1/models` - Create model metadata
 - `GET /api/v1/models` - List all models
 - `GET /api/v1/models/{model_id}` - Get model details
+- `PATCH /api/v1/models/{model_id}` - Update model metadata
 - `POST /api/v1/models/{model_id}/upload` - Upload ONNX file
 - `POST /api/v1/models/{model_id}/validate` - Validate and activate model
 - `DELETE /api/v1/models/{model_id}` - Delete model
+- `GET /api/v1/models/by-name/{name}/versions` - List all versions of a model
+- `GET /api/v1/models/by-name/{name}/latest` - Get latest version of a model
 
 ### Predictions
 - `POST /api/v1/models/{model_id}/predict` - Run synchronous prediction
@@ -194,9 +198,12 @@ ModelForge/
 - `GET /api/v1/jobs` - List jobs
 - `GET /api/v1/jobs/{job_id}` - Get job status
 - `GET /api/v1/jobs/{job_id}/result` - Poll for job result
+- `POST /api/v1/jobs/{job_id}/cancel` - Cancel pending/running job
+- `DELETE /api/v1/jobs/{job_id}` - Delete completed/failed job
 
 ### Cache
 - `GET /api/v1/cache/metrics` - Cache hit/miss statistics
+- `POST /api/v1/cache/metrics/reset` - Reset cache metrics counters
 
 ## Environment Variables
 
