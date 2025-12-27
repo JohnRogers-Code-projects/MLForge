@@ -104,9 +104,9 @@ class TestPerformanceBenchmarks:
         latency_ms = (end_time - start_time) * 1000
 
         # Assert under 100ms (conservative for CI environments)
-        assert latency_ms < 100, (
-            f"Single prediction took {latency_ms:.2f}ms, expected < 100ms"
-        )
+        assert (
+            latency_ms < 100
+        ), f"Single prediction took {latency_ms:.2f}ms, expected < 100ms"
 
         # Also verify the inference_time_ms from the response is reasonable
         data = response.json()
@@ -153,9 +153,9 @@ class TestPerformanceBenchmarks:
         assert len(data["output_data"]["output"]) == batch_size
 
         # Assert minimum throughput (conservative: at least 100 predictions/sec)
-        assert throughput >= 100, (
-            f"Throughput {throughput:.1f} predictions/sec is below minimum 100/sec"
-        )
+        assert (
+            throughput >= 100
+        ), f"Throughput {throughput:.1f} predictions/sec is below minimum 100/sec"
 
     @pytest.mark.asyncio
     async def test_cache_hit_latency_under_10ms(
@@ -230,9 +230,9 @@ class TestPredictionCachePerformance:
         elapsed_ms = (end_time - start_time) * 1000
 
         # 1000 cache checks should complete in under 100ms
-        assert elapsed_ms < 100, (
-            f"1000 cache checks took {elapsed_ms:.2f}ms, expected < 100ms"
-        )
+        assert (
+            elapsed_ms < 100
+        ), f"1000 cache checks took {elapsed_ms:.2f}ms, expected < 100ms"
 
 
 class TestInferenceTimeReporting:
@@ -261,9 +261,9 @@ class TestInferenceTimeReporting:
         # Inference time should be positive and reasonable
         inference_time = data["inference_time_ms"]
         assert inference_time > 0, "Inference time must be positive"
-        assert inference_time < 100, (
-            "Inference time should be under 100ms for simple model"
-        )
+        assert (
+            inference_time < 100
+        ), "Inference time should be under 100ms for simple model"
 
     @pytest.mark.asyncio
     async def test_multiple_predictions_consistent_timing(
@@ -299,9 +299,9 @@ class TestInferenceTimeReporting:
         min_time = min(inference_times)
 
         # Variance should be reasonable (max should be within 10x of min)
-        assert max_time < min_time * 10, (
-            f"Inference times too variable: min={min_time:.2f}ms, max={max_time:.2f}ms"
-        )
+        assert (
+            max_time < min_time * 10
+        ), f"Inference times too variable: min={min_time:.2f}ms, max={max_time:.2f}ms"
 
         # Average should be reasonable
         assert avg_time < 50, f"Average inference time {avg_time:.2f}ms is too high"
