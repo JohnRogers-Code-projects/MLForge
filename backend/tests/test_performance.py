@@ -213,13 +213,13 @@ class TestPredictionCachePerformance:
         mock_cache = CacheService(enabled=False)
 
         # Create prediction cache with mock
-        prediction_cache = PredictionCache(cache_service=mock_cache)
+        prediction_cache = PredictionCache(cache=mock_cache)
 
-        # The check operation should be very fast even when cache is disabled
+        # The get_prediction operation should be very fast even when cache is disabled
         # (it just returns a miss immediately)
         start_time = time.perf_counter()
         for _ in range(1000):
-            await prediction_cache.check(
+            await prediction_cache.get_prediction(
                 model_id="test-model-id",
                 input_data={"input": [[1.0] * 10]},
             )
