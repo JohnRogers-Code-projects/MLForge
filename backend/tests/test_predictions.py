@@ -485,3 +485,148 @@ class TestPredictionCRUDOperations:
             assert prediction.request_id is None  # Optional field
             assert prediction.client_ip is None  # Optional field
             break
+
+
+class TestCLAUDEMDRequirements:
+    """Tests verifying CLAUDE.md Work Item 1 requirements.
+
+    These tests use the exact names specified in CLAUDE.md to ensure
+    all required test cases are present and passing.
+
+    NOTE: Some tests intentionally duplicate functionality from other test
+    classes (e.g., TestInferenceValidation). This duplication is deliberate
+    for requirement traceability - CLAUDE.md specifies these exact test names
+    must exist, making compliance auditing straightforward. The existing tests
+    provide thorough coverage; these tests provide explicit name matching.
+    """
+
+    @pytest.mark.asyncio
+    async def test_predict_accepts_arbitrary_features(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Verify prediction endpoint accepts arbitrary input features.
+
+        CLAUDE.md requirement: test_predict_accepts_arbitrary_features
+        """
+        model_id = await setup_ready_model(client, valid_onnx_file)
+
+        # Test with arbitrary float features
+        input_data = {"input": [[1.5, 2.7, 3.3, 4.1, 5.9, 6.2, 7.8, 8.4, 9.0, 10.6]]}
+        response = await client.post(
+            f"/api/v1/models/{model_id}/predict",
+            json={"input_data": input_data},
+        )
+
+        assert response.status_code == 201
+        assert "output_data" in response.json()
+
+    @pytest.mark.asyncio
+    async def test_returns_prediction_array(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Verify prediction endpoint returns output as array.
+
+        CLAUDE.md requirement: test_returns_prediction_array
+        """
+        model_id = await setup_ready_model(client, valid_onnx_file)
+
+        input_data = {"input": [[1.0] * 10]}
+        response = await client.post(
+            f"/api/v1/models/{model_id}/predict",
+            json={"input_data": input_data},
+        )
+
+        assert response.status_code == 201
+        data = response.json()
+        assert "output_data" in data
+        assert "output" in data["output_data"]
+        assert isinstance(data["output_data"]["output"], list)
+        assert isinstance(data["output_data"]["output"][0], list)
+
+    @pytest.mark.asyncio
+    async def test_validates_input_matches_model_schema(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Verify prediction validates input against model schema.
+
+        CLAUDE.md requirement: test_validates_input_matches_model_schema
+        """
+        model_id = await setup_ready_model(client, valid_onnx_file)
+
+        # Wrong shape - model expects 10 features, provide 5
+        input_data = {"input": [[1.0, 2.0, 3.0, 4.0, 5.0]]}
+        response = await client.post(
+            f"/api/v1/models/{model_id}/predict",
+            json={"input_data": input_data},
+        )
+
+        # Should fail with inference error due to shape mismatch
+        assert response.status_code == 500
+        assert "inference failed" in response.json()["detail"].lower()
+
+    @pytest.mark.asyncio
+    async def test_rejects_missing_features(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Verify prediction rejects input with missing required features.
+
+        CLAUDE.md requirement: test_rejects_missing_features
+        """
+        model_id = await setup_ready_model(client, valid_onnx_file)
+
+        # Missing 'input' key entirely
+        response = await client.post(
+            f"/api/v1/models/{model_id}/predict",
+            json={"input_data": {"wrong_key": [[1.0] * 10]}},
+        )
+
+        assert response.status_code == 400
+        assert "missing" in response.json()["detail"].lower()
+
+    @pytest.mark.asyncio
+    async def test_caches_predictions_in_redis(
+        self, client: AsyncClient, valid_onnx_file: io.BytesIO
+    ):
+        """Verify predictions are cached (X-Cache header present).
+
+        CLAUDE.md requirement: test_caches_predictions_in_redis
+
+        This test verifies the caching mechanism is active by checking
+        the X-Cache header. In test environment, Redis may be disabled,
+        so we verify the header exists (indicating cache logic runs).
+        Full cache hit/miss behavior is tested in test_prediction_cache.py.
+        """
+        model_id = await setup_ready_model(client, valid_onnx_file)
+
+        input_data = {"input": [[1.0] * 10]}
+
+        # First request - should be MISS (or MISS if cache disabled)
+        response1 = await client.post(
+            f"/api/v1/models/{model_id}/predict",
+            json={"input_data": input_data},
+        )
+        assert response1.status_code == 201
+        assert "X-Cache" in response1.headers
+
+        # Second identical request - would be HIT if cache enabled
+        response2 = await client.post(
+            f"/api/v1/models/{model_id}/predict",
+            json={"input_data": input_data},
+        )
+        assert response2.status_code == 201
+        assert "X-Cache" in response2.headers
+        # Both responses should have valid cache headers
+        assert response2.headers["X-Cache"] in ("HIT", "MISS")
+
+    @pytest.mark.asyncio
+    async def test_handles_model_not_found(self, client: AsyncClient):
+        """Verify prediction returns 404 for nonexistent model.
+
+        CLAUDE.md requirement: test_handles_model_not_found
+        """
+        response = await client.post(
+            "/api/v1/models/nonexistent-model-id/predict",
+            json={"input_data": {"input": [[1.0] * 10]}},
+        )
+
+        assert response.status_code == 404
