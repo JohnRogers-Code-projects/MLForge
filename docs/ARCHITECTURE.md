@@ -1,6 +1,6 @@
-# MLForge Architecture
+# ModelForge Architecture
 
-This document describes the system architecture of MLForge, a generic ONNX model serving platform.
+This document describes the system architecture of ModelForge, a generic ONNX model serving platform.
 
 ## System Overview
 
@@ -70,10 +70,10 @@ The REST API provides endpoints organized by resource:
 
 | Tag | Endpoints | Purpose |
 |-----|-----------|---------|
-| `health` | `/health`, `/health/ready`, `/health/live` | Kubernetes probes, service monitoring |
-| `models` | `/models`, `/models/{id}`, `/models/{id}/upload`, `/models/{id}/validate` | ONNX model CRUD and lifecycle |
-| `predictions` | `/models/{id}/predict`, `/models/{id}/predictions` | Synchronous inference |
-| `jobs` | `/jobs`, `/jobs/{id}` | Async job queue management |
+| `health` | `/health`, `/ready`, `/live` | Kubernetes probes, service monitoring |
+| `models` | `/models`, `/models/{model_id}`, `/models/{model_id}/upload`, `/models/{model_id}/validate` | ONNX model CRUD and lifecycle |
+| `predictions` | `/models/{model_id}/predict`, `/models/{model_id}/predictions` | Synchronous inference |
+| `jobs` | `/jobs`, `/jobs/{job_id}` | Async job queue management |
 | `cache` | `/cache/metrics`, `/cache/metrics/reset` | Cache monitoring |
 
 **Middleware Stack:**
@@ -88,11 +88,11 @@ The REST API provides endpoints organized by resource:
 MLModel
 ├── id (UUID)
 ├── name, version
-├── status (pending → uploaded → ready / failed)
+├── status (pending → uploaded → validating → ready / error / archived)
 ├── file_path (relative to storage root)
 ├── file_hash (SHA-256)
 ├── input_schema, output_schema (JSON)
-└── metadata (JSON)
+└── model_metadata (JSON)
 
 Prediction
 ├── id (UUID)
@@ -117,11 +117,14 @@ Job
 ```mermaid
 stateDiagram-v2
     [*] --> pending: POST /models
-    pending --> uploaded: POST /models/{id}/upload
-    uploaded --> ready: POST /models/{id}/validate (success)
-    uploaded --> failed: POST /models/{id}/validate (error)
-    failed --> uploaded: Re-upload file
-    ready --> [*]: DELETE /models/{id}
+    pending --> uploaded: POST /models/{model_id}/upload
+    uploaded --> validating: POST /models/{model_id}/validate
+    validating --> ready: Validation success
+    validating --> error: Validation failure
+    error --> uploaded: Re-upload file
+    ready --> archived: Archive model
+    ready --> [*]: DELETE /models/{model_id}
+    archived --> [*]: DELETE /models/{model_id}
 ```
 
 ### Inference Engine
@@ -225,7 +228,7 @@ sequenceDiagram
     participant ONNX
     participant DB
 
-    Client->>API: POST /models/{id}/predict
+    Client->>API: POST /models/{model_id}/predict
     API->>Cache: Check prediction cache
     alt Cache Hit
         Cache-->>API: Cached result
@@ -259,7 +262,7 @@ sequenceDiagram
     Worker->>Worker: Run inference
     Worker->>DB: Update job (status=completed/failed)
 
-    Client->>API: GET /jobs/{id}
+    Client->>API: GET /jobs/{job_id}
     API->>DB: Fetch job
     API-->>Client: JobResponse with results
 ```
@@ -277,13 +280,13 @@ sequenceDiagram
     API->>DB: Create model (status=pending)
     API-->>Client: ModelResponse
 
-    Client->>API: POST /models/{id}/upload (file)
+    Client->>API: POST /models/{model_id}/upload (file)
     API->>Storage: Save file
     Storage-->>API: (path, size, hash)
     API->>DB: Update model (status=uploaded)
     API-->>Client: ModelResponse
 
-    Client->>API: POST /models/{id}/validate
+    Client->>API: POST /models/{model_id}/validate
     API->>Storage: Get file path
     API->>API: ONNX validation
     API->>DB: Update model (status=ready, schemas)
