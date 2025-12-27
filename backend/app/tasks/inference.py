@@ -73,9 +73,7 @@ def run_inference_task(self, job_id: str) -> dict[str, Any]:
             return {"job_id": job_id, "status": "error", "error": "Job not found"}
 
         # Calculate queue time (time from job creation to task start)
-        queue_time_ms = (
-            datetime.now(UTC) - job.created_at
-        ).total_seconds() * 1000
+        queue_time_ms = (datetime.now(UTC) - job.created_at).total_seconds() * 1000
 
         # Update job status to RUNNING
         try:
