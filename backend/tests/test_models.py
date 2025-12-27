@@ -783,6 +783,7 @@ class TestCLAUDEMDRequirementsWorkItem2:
             "/api/v1/models",
             json={"name": "claudemd-invalid-ext-test", "version": "1.0.0"},
         )
+        assert create_response.status_code == 201
         model_id = create_response.json()["id"]
 
         # Try to upload non-ONNX file
@@ -791,7 +792,7 @@ class TestCLAUDEMDRequirementsWorkItem2:
         response = await client.post(f"/api/v1/models/{model_id}/upload", files=files)
 
         assert response.status_code == 400
-        assert "invalid" in response.json()["detail"].lower()
+        assert "Invalid file extension" in response.json()["detail"]
 
     @pytest.mark.asyncio
     async def test_upload_stores_metadata(
@@ -806,6 +807,7 @@ class TestCLAUDEMDRequirementsWorkItem2:
             "/api/v1/models",
             json={"name": "claudemd-metadata-test", "version": "1.0.0"},
         )
+        assert create_response.status_code == 201
         model_id = create_response.json()["id"]
 
         # Upload ONNX file
@@ -832,6 +834,7 @@ class TestCLAUDEMDRequirementsWorkItem2:
             "/api/v1/models",
             json={"name": "claudemd-list-test", "version": "1.0.0"},
         )
+        assert create_response.status_code == 201
         model_id = create_response.json()["id"]
 
         files = {"file": ("model.onnx", sample_onnx_file, "application/octet-stream")}
