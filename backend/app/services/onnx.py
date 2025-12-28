@@ -44,6 +44,42 @@ class ONNXInputError(ONNXError):
     pass
 
 
+class PostCommitmentInvariantViolation(ONNXError):
+    """The pipeline is in a state that must not exist.
+
+    POST-COMMITMENT INVARIANT VIOLATION
+    ====================================
+
+    This exception is raised when post-commitment assumptions are violated.
+    It is not an error to be handled. It is a statement that the pipeline
+    contract has been broken and continuation is not permitted.
+
+    Violated Invariant:
+        After commitment, `file_path` points to a valid, loadable ONNX file.
+
+    Observed State:
+        A committed model's file no longer exists on disk.
+
+    Why This Stops Execution:
+        The commitment boundary guarantees that post-boundary code may rely
+        on certain invariants. If those invariants do not hold, the guarantee
+        is broken. Continuing would mean operating on assumptions known to
+        be false. The system refuses.
+
+    This Is Not:
+        - A transient error (do not retry)
+        - An input validation failure (the model was already committed)
+        - A recoverable state (there is no fallback)
+        - A warning (execution stops here)
+
+    If you are reading this because this exception was raised:
+        The pipeline's contract was violated. The only correct response
+        is to stop and determine how the invariant was broken.
+    """
+
+    pass
+
+
 @dataclass
 class TensorSchema:
     """Schema for a single input or output tensor.
@@ -264,9 +300,27 @@ class ONNXService:
 
         Raises:
             ONNXLoadError: If model fails to load
+            PostCommitmentInvariantViolation: If committed model's file no longer exists
         """
         path = Path(model_path).resolve()
         cache_key = str(path)
+
+        # ---------------------------------------------------------------------
+        # POST-COMMITMENT INVARIANT CHECK
+        # ---------------------------------------------------------------------
+        # Invariant: After commitment, file_path points to a valid ONNX file.
+        # If we have a cached session but the file is gone, the invariant is
+        # violated. This is not corruption detection. This is a statement that
+        # the pipeline is in a state that must not exist.
+        if cache_key in self._session_cache:
+            if not path.exists():
+                del self._session_cache[cache_key]
+                raise PostCommitmentInvariantViolation(
+                    f"POST-COMMITMENT INVARIANT VIOLATED. "
+                    f"Invariant: file_path points to a valid ONNX file. "
+                    f"Observed: file '{path}' no longer exists. "
+                    f"The pipeline contract is broken. Execution cannot continue."
+                )
 
         if cache_key not in self._session_cache:
             session = self.load_session(path)

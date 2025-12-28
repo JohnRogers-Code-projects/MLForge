@@ -25,7 +25,12 @@ from app.schemas.prediction import (
     PredictionListResponse,
     PredictionResponse,
 )
-from app.services.onnx import ONNXInferenceError, ONNXInputError, ONNXLoadError
+from app.services.onnx import (
+    ONNXInferenceError,
+    ONNXInputError,
+    ONNXLoadError,
+    PostCommitmentInvariantViolation,
+)
 from app.services.prediction_cache import PredictionCache
 
 router = APIRouter()
@@ -70,14 +75,16 @@ async def create_prediction(
 
     # -------------------------------------------------------------------------
     # POST-BOUNDARY INVARIANT CHECK
-    # After commitment, file_path must exist. If it doesn't, state is corrupt.
-    # This is a sanity check, not normal error handling.
+    # Invariant: After commitment, file_path is set.
+    # If violated, the pipeline is in a state that must not exist.
     # -------------------------------------------------------------------------
     if not model.file_path:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="INVARIANT VIOLATION: Committed model has no file_path. "
-            "This indicates corrupt state, not a user error.",
+            detail="POST-COMMITMENT INVARIANT VIOLATED. "
+            "Invariant: committed model has file_path set. "
+            "Observed: file_path is None. "
+            "The pipeline contract is broken. Execution cannot continue.",
         )
 
     # Initialize prediction cache
@@ -113,6 +120,13 @@ async def create_prediction(
             result = onnx_service.run_inference(file_path, prediction_in.input_data)
             output_data = result.outputs
             inference_time_ms = result.inference_time_ms
+        except PostCommitmentInvariantViolation:
+            # -----------------------------------------------------------------
+            # POST-COMMITMENT INVARIANT VIOLATION
+            # The pipeline is in a state that must not exist.
+            # This is not handled. Execution stops.
+            # -----------------------------------------------------------------
+            raise
         except ONNXInputError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

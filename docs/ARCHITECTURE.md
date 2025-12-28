@@ -216,6 +216,44 @@ If you try to run inference on an UPLOADED model, the error message explicitly s
 
 This is intentionally **not** a global canonical context. Each model commits independently.
 
+### Deliberate Failure Modes
+
+MLForge includes intentional, non-recoverable failure modes. These are not errors to be handled. They are statements that the pipeline is in a state that must not exist.
+
+#### PostCommitmentInvariantViolation
+
+**Location**: `app/services/onnx.py`
+
+**Violated Invariant**: After commitment, `file_path` points to a valid, loadable ONNX file.
+
+**Observed State**: A committed model's file no longer exists on disk.
+
+**What Happens**:
+1. Exception is raised
+2. Execution stops
+3. The exception propagates without being caught
+
+**What Does NOT Happen**:
+- No retry
+- No fallback
+- No silent reload from a different path
+- No graceful degradation
+- No wrapping in a "friendlier" error
+
+**Why Stopping Is Correct**:
+
+The commitment boundary guarantees that post-boundary code may rely on certain invariants. If those invariants do not hold, continuing would mean operating on assumptions known to be false. The system refuses.
+
+This is not about "something went wrong." This is about the pipeline contract being violated. The only honest response is to stop.
+
+**Code path**:
+```
+get_cached_session() → file missing → raises PostCommitmentInvariantViolation
+  → predictions.py → raise (not caught) → execution stops
+```
+
+If you are tempted to catch this exception and continue, ask: "Why is it acceptable to proceed when the pipeline's contract is known to be broken?"
+
 ### Inference Engine
 
 **ONNX Service** (`app/services/onnx.py`)
