@@ -1,10 +1,25 @@
-"""API routes for predictions."""
+"""API routes for predictions.
+
+=============================================================================
+POST-BOUNDARY CODE
+=============================================================================
+
+This module operates AFTER the pipeline commitment boundary.
+
+All code here assumes the model has been validated and is in READY status.
+The following invariants are assumed to hold:
+- model.file_path points to a valid ONNX file
+- model.input_schema and model.output_schema are authoritative
+- The ONNX file is loadable by ONNX Runtime
+
+If these invariants do not hold, the system is in a corrupt state.
+This module does NOT tolerate pre-boundary models.
+"""
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response, status
 
 from app.api.deps import CacheDep, DBSession, ModelDep, ONNXDep, StorageDep
 from app.crud import prediction_crud
-from app.models.ml_model import ModelStatus
 from app.schemas.prediction import (
     PredictionCreate,
     PredictionListResponse,
@@ -33,25 +48,36 @@ async def create_prediction(
 ) -> PredictionResponse:
     """Run synchronous inference on a model.
 
-    Validates the model is ready, runs inference using ONNX Runtime,
-    and stores the prediction result in the database.
+    This is POST-BOUNDARY code. It requires a committed model.
+
+    The model must have crossed the pipeline commitment boundary (status=READY).
+    Pre-boundary models are rejected explicitly, not silently ignored.
 
     Supports prediction caching: if the same input was recently predicted,
     returns the cached result. Use skip_cache=true to bypass the cache.
     """
-    # Check model status
-    if model.status != ModelStatus.READY:
+    # -------------------------------------------------------------------------
+    # BOUNDARY ENFORCEMENT
+    # This is the first operation. Pre-boundary models cannot proceed.
+    # -------------------------------------------------------------------------
+    try:
+        model.assert_committed()
+    except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Model is not ready for inference. Current status: {model.status.value}. "
-            f"Please validate the model first.",
-        )
+            detail=str(e),
+        ) from e
 
-    # Check model has a file
+    # -------------------------------------------------------------------------
+    # POST-BOUNDARY INVARIANT CHECK
+    # After commitment, file_path must exist. If it doesn't, state is corrupt.
+    # This is a sanity check, not normal error handling.
+    # -------------------------------------------------------------------------
     if not model.file_path:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Model does not have an uploaded file.",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="INVARIANT VIOLATION: Committed model has no file_path. "
+            "This indicates corrupt state, not a user error.",
         )
 
     # Initialize prediction cache

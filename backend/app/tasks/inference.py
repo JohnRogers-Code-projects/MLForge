@@ -1,7 +1,21 @@
 """Celery task for async model inference.
 
-This module contains the Celery task that runs ONNX model inference
-asynchronously. The task:
+=============================================================================
+POST-BOUNDARY CODE
+=============================================================================
+
+This module operates AFTER the pipeline commitment boundary.
+
+All code here assumes the model has been validated and is in READY status.
+The following invariants are assumed to hold:
+- model.file_path points to a valid ONNX file
+- model.input_schema and model.output_schema are authoritative
+- The ONNX file is loadable by ONNX Runtime
+
+If these invariants do not hold, the system is in a corrupt state.
+This module does NOT tolerate pre-boundary models.
+
+Task flow:
 1. Loads the model from storage
 2. Runs inference using ONNXService
 3. Updates the job record with results or error info
@@ -21,7 +35,7 @@ from app.celery import celery_app
 from app.config import settings
 from app.database import sync_engine
 from app.models.job import Job, JobStatus
-from app.models.ml_model import MLModel, ModelStatus
+from app.models.ml_model import MLModel
 from app.services.onnx import ONNXError, ONNXService
 
 logger = logging.getLogger(__name__)
@@ -98,13 +112,26 @@ def run_inference_task(self, job_id: str) -> dict[str, Any]:
             if not model:
                 raise ValueError(f"Model {job.model_id} not found")
 
-            if model.status != ModelStatus.READY:
+            # -----------------------------------------------------------------
+            # BOUNDARY ENFORCEMENT
+            # This is the first check. Pre-boundary models cannot proceed.
+            # -----------------------------------------------------------------
+            if not model.is_committed():
                 raise ValueError(
-                    f"Model {job.model_id} is not ready (status: {model.status})"
+                    f"Model {job.model_id} has not crossed the pipeline commitment boundary. "
+                    f"Current status: {model.status.value}. "
+                    f"Async inference requires a committed model."
                 )
 
+            # -----------------------------------------------------------------
+            # POST-BOUNDARY INVARIANT CHECK
+            # After commitment, file_path must exist. If not, state is corrupt.
+            # -----------------------------------------------------------------
             if not model.file_path:
-                raise ValueError(f"Model {job.model_id} has no file uploaded")
+                raise ValueError(
+                    f"INVARIANT VIOLATION: Committed model {job.model_id} has no file_path. "
+                    f"This indicates corrupt state."
+                )
 
             # Run inference - validate path to prevent directory traversal
             onnx_service = ONNXService()
