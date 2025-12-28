@@ -55,16 +55,24 @@ async def create_prediction(
 
     This is POST-BOUNDARY code. It requires a committed model.
 
-    The model must have crossed the pipeline commitment boundary (status=READY).
-    Pre-boundary models are rejected explicitly, not silently ignored.
+    Decision Authority
+    ------------------
+    All decisions about WHETHER to proceed are made in this function.
+    Execution code (ONNXService) makes no policy decisions.
 
-    Supports prediction caching: if the same input was recently predicted,
-    returns the cached result. Use skip_cache=true to bypass the cache.
+    To add policy (retries, fallbacks, confidence thresholds), you must
+    modify this function. That is intentional. Policy changes should be
+    visible in orchestration code, not hidden in execution code.
     """
-    # -------------------------------------------------------------------------
-    # BOUNDARY ENFORCEMENT
-    # This is the first operation. Pre-boundary models cannot proceed.
-    # -------------------------------------------------------------------------
+    # =========================================================================
+    # PHASE 1: DECISIONS
+    # All decisions are made here. Each decision is named and explicit.
+    # Adding policy requires adding a decision here.
+    # =========================================================================
+
+    # DECISION 1: Is the model committed?
+    # Authority: Pipeline commitment boundary
+    # If NO: Reject with 400
     try:
         model.assert_committed()
     except ValueError as e:
@@ -73,11 +81,9 @@ async def create_prediction(
             detail=str(e),
         ) from e
 
-    # -------------------------------------------------------------------------
-    # POST-BOUNDARY INVARIANT CHECK
-    # Invariant: After commitment, file_path is set.
-    # If violated, the pipeline is in a state that must not exist.
-    # -------------------------------------------------------------------------
+    # DECISION 2: Does the model have a file path?
+    # Authority: Post-commitment invariant
+    # If NO: This is a contract violation, not a user error
     if not model.file_path:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -87,26 +93,45 @@ async def create_prediction(
             "The pipeline contract is broken. Execution cannot continue.",
         )
 
-    # Initialize prediction cache
+    # DECISION 3: Should we use a cached result?
+    # Authority: Caller (via skip_cache parameter)
+    # If YES: Return cached result, skip inference
     prediction_cache = PredictionCache(cache)
-    cached = False
-    output_data = None
-    inference_time_ms = None
+    use_cached_result = False
+    cached_output = None
+    cached_time = None
 
-    # Check cache (unless skip_cache is set)
     if not prediction_in.skip_cache:
         cache_result = await prediction_cache.get_prediction(
             model.id, prediction_in.input_data
         )
         if cache_result.hit:
-            cached = True
-            output_data = cache_result.output_data
-            inference_time_ms = cache_result.inference_time_ms
-            response.headers["X-Cache"] = "HIT"
+            use_cached_result = True
+            cached_output = cache_result.output_data
+            cached_time = cache_result.inference_time_ms
 
-    # Cache miss or skip_cache - run inference
-    if not cached:
-        # Get the file path from storage
+    # DECISION 4: Should we invoke inference?
+    # Authority: This function (based on cache decision above)
+    # This is the decision to invoke. It is explicit.
+    should_invoke_inference = not use_cached_result
+
+    # =========================================================================
+    # PHASE 2: EXECUTION
+    # Decisions have been made. Now execute based on those decisions.
+    # Execution code does not make policy decisions.
+    # =========================================================================
+
+    if use_cached_result:
+        # EXECUTE: Use cached result
+        output_data = cached_output
+        inference_time_ms = cached_time
+        response.headers["X-Cache"] = "HIT"
+
+    if should_invoke_inference:
+        # EXECUTE: Run inference
+        # This block contains NO decisions. Only execution.
+
+        # Get file path
         try:
             file_path = await storage.get_path(model.file_path)
         except Exception as e:
@@ -115,17 +140,13 @@ async def create_prediction(
                 detail=f"Failed to access model file: {e}",
             ) from e
 
-        # Run inference
+        # Invoke ONNXService (pure execution, no policy)
         try:
             result = onnx_service.run_inference(file_path, prediction_in.input_data)
             output_data = result.outputs
             inference_time_ms = result.inference_time_ms
         except PostCommitmentInvariantViolation:
-            # -----------------------------------------------------------------
-            # POST-COMMITMENT INVARIANT VIOLATION
-            # The pipeline is in a state that must not exist.
-            # This is not handled. Execution stops.
-            # -----------------------------------------------------------------
+            # Contract violation - not handled, execution stops
             raise
         except ONNXInputError as e:
             raise HTTPException(
@@ -143,7 +164,7 @@ async def create_prediction(
                 detail=f"Inference failed: {e}",
             ) from e
 
-        # Cache the result for future requests
+        # Store in cache for future requests
         await prediction_cache.set_prediction(
             model.id,
             prediction_in.input_data,
@@ -152,17 +173,19 @@ async def create_prediction(
         )
         response.headers["X-Cache"] = "MISS"
 
-    # Get client IP for logging
-    client_ip = request.client.host if request.client else None
+    # =========================================================================
+    # PHASE 3: RECORD
+    # Execution complete. Record the result.
+    # =========================================================================
 
-    # Ensure we have results (either from cache or inference)
     if output_data is None or inference_time_ms is None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Inference did not produce results.",
         )
 
-    # Create prediction record with results (always, even on cache hit for audit)
+    client_ip = request.client.host if request.client else None
+
     prediction = await prediction_crud.create_with_results(
         db,
         model_id=model.id,
@@ -171,7 +194,7 @@ async def create_prediction(
         inference_time_ms=inference_time_ms,
         request_id=prediction_in.request_id,
         client_ip=client_ip,
-        cached=cached,
+        cached=use_cached_result,
     )
 
     return PredictionResponse.model_validate(prediction)
