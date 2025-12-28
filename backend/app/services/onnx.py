@@ -175,14 +175,34 @@ _ONNX_DTYPE_MAP: dict[str, str] = {
 class ONNXService:
     """Service for ONNX model operations.
 
-    Provides functionality to:
-    - Load and validate ONNX models
-    - Extract input/output tensor schemas
-    - Extract model metadata (opset version, producer info, etc.)
-    - Run inference with session caching
+    PURE EXECUTION - NO POLICY DECISIONS
+    =====================================
 
-    This service uses ONNX Runtime for model loading which validates
-    that models are compatible with the runtime and can be used for inference.
+    This service is pure execution code. It makes NO decisions about:
+    - Whether to run inference (caller decides)
+    - Whether the model is valid for use (commitment boundary decides)
+    - Whether to retry on failure (orchestration code decides)
+    - Whether to cache results (PredictionCache decides)
+
+    Given a path and input data, this service runs inference. That's it.
+
+    If you find yourself wanting to add policy here (retries, fallbacks,
+    confidence checks), that policy belongs in the calling code, not here.
+
+    What This Service Does
+    ----------------------
+    - Load ONNX files into inference sessions
+    - Cache loaded sessions for performance
+    - Run inference given a path and input data
+    - Detect post-commitment invariant violations (file missing from cache)
+    - Convert between ONNX types and numpy types
+
+    Why This Matters
+    ----------------
+    Separating execution from policy means:
+    - This service can be tested in isolation
+    - Policy changes require visible changes in orchestration code
+    - Adding retries/fallbacks requires modifying callers, not this service
     """
 
     def __init__(self, providers: list[str] | None = None):

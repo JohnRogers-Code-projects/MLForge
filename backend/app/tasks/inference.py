@@ -65,16 +65,19 @@ def _get_sync_session() -> Session:
 def run_inference_task(self, job_id: str) -> dict[str, Any]:
     """Run inference for a job asynchronously.
 
-    This task:
-    1. Updates job status to RUNNING
-    2. Loads the model and runs inference
-    3. Updates job with results (COMPLETED) or error (FAILED)
+    This is POST-BOUNDARY code executed by Celery workers.
 
-    Args:
-        job_id: UUID of the job to process
+    Decision Authority
+    ------------------
+    All decisions about WHETHER to proceed are made in this function.
+    Execution code (ONNXService) makes no policy decisions.
 
-    Returns:
-        Dict with job_id, status, and output_data or error_message
+    To add policy (custom retries, fallbacks, confidence thresholds), you must
+    modify this function. That is intentional. Policy changes should be
+    visible in orchestration code, not hidden in execution code.
+
+    Note: Celery retry policy is configured via decorator, not inline code.
+    This is visible at the function level, not hidden in implementation.
     """
     logger.info(f"Starting inference task for job {job_id}")
     task_start_time = time.perf_counter()
@@ -104,6 +107,11 @@ def run_inference_task(self, job_id: str) -> dict[str, Any]:
             raise
 
         try:
+            # =================================================================
+            # PHASE 1: DECISIONS
+            # All decisions are made here. Each decision is named and explicit.
+            # =================================================================
+
             # Fetch model
             model = db.execute(
                 select(MLModel).where(MLModel.id == job.model_id)
@@ -112,10 +120,8 @@ def run_inference_task(self, job_id: str) -> dict[str, Any]:
             if not model:
                 raise ValueError(f"Model {job.model_id} not found")
 
-            # -----------------------------------------------------------------
-            # BOUNDARY ENFORCEMENT
-            # This is the first check. Pre-boundary models cannot proceed.
-            # -----------------------------------------------------------------
+            # DECISION 1: Is the model committed?
+            # Authority: Pipeline commitment boundary
             if not model.is_committed():
                 raise ValueError(
                     f"Model {job.model_id} has not crossed the pipeline commitment boundary. "
@@ -123,26 +129,31 @@ def run_inference_task(self, job_id: str) -> dict[str, Any]:
                     f"Async inference requires a committed model."
                 )
 
-            # -----------------------------------------------------------------
-            # POST-BOUNDARY INVARIANT CHECK
-            # After commitment, file_path must exist. If not, state is corrupt.
-            # -----------------------------------------------------------------
+            # DECISION 2: Does the model have a file path?
+            # Authority: Post-commitment invariant
             if not model.file_path:
                 raise ValueError(
                     f"INVARIANT VIOLATION: Committed model {job.model_id} has no file_path. "
                     f"This indicates corrupt state."
                 )
 
-            # Run inference - validate path to prevent directory traversal
-            onnx_service = ONNXService()
+            # DECISION 3: Is the file path valid (not a traversal attack)?
+            # Authority: Security policy
             base_path = Path(settings.model_storage_path).resolve()
             model_path = (base_path / model.file_path).resolve()
-
-            # Security check: ensure resolved path is within storage directory
             if not model_path.is_relative_to(base_path):
                 raise ValueError(f"Model {job.model_id} has invalid file path")
 
+            # All decisions passed. Proceed to execution.
+
+            # =================================================================
+            # PHASE 2: EXECUTION
+            # Decisions have been made. Execute based on those decisions.
+            # ONNXService contains no policy decisions.
+            # =================================================================
+
             logger.info(f"Running inference for job {job_id} using model {model.name}")
+            onnx_service = ONNXService()
             result = onnx_service.run_inference(model_path, job.input_data)
 
             # Update job with success

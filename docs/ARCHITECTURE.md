@@ -254,6 +254,59 @@ get_cached_session() → file missing → raises PostCommitmentInvariantViolatio
 
 If you are tempted to catch this exception and continue, ask: "Why is it acceptable to proceed when the pipeline's contract is known to be broken?"
 
+### Decision Authority
+
+MLForge separates **decisions** (whether to proceed) from **execution** (how to proceed).
+
+#### Code Structure
+
+Orchestration code (`predictions.py`, `inference.py`) is structured in phases:
+
+```
+PHASE 1: DECISIONS
+  - All decisions are made here
+  - Each decision is named and explicit
+  - Decision authority is documented
+
+PHASE 2: EXECUTION
+  - Decisions have been made
+  - Execute based on those decisions
+  - Execution code makes NO policy decisions
+
+PHASE 3: RECORD (if applicable)
+  - Record results
+```
+
+#### Decision Table
+
+| Decision | Authority | Location |
+|----------|-----------|----------|
+| Is model committed? | Pipeline commitment boundary | predictions.py, inference.py |
+| Does file_path exist? | Post-commitment invariant | predictions.py, inference.py |
+| Use cached result? | Caller (skip_cache param) | predictions.py |
+| Is path safe? | Security policy | inference.py |
+
+#### Execution Code Has No Decisions
+
+**ONNXService.run_inference()** is pure execution:
+- Takes path and input data
+- Returns results
+- Makes no decisions about whether to proceed
+- Contains no policy logic
+
+If you find yourself wanting ONNXService to "decide" something, that decision belongs in the calling code.
+
+#### Adding Policy Requires Visible Changes
+
+To add:
+- Retries: Add a DECISION in orchestration code
+- Fallbacks: Add a DECISION in orchestration code
+- Confidence thresholds: Add a DECISION in orchestration code
+
+You cannot add policy by modifying ONNXService. That is intentional.
+
+Policy changes should be visible at the orchestration level, not hidden in execution code.
+
 ### Inference Engine
 
 **ONNX Service** (`app/services/onnx.py`)
