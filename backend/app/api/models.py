@@ -359,10 +359,21 @@ async def validate_model(
 ) -> ModelValidateResponse:
     """Validate an uploaded ONNX model.
 
-    Loads the model with ONNX Runtime, validates its structure,
-    and extracts input/output schemas and metadata. Updates the
-    model status to READY on success or ERROR on failure.
-    Automatically invalidates the cache for this model.
+    =======================================================================
+    THIS IS THE PIPELINE COMMITMENT POINT
+    =======================================================================
+
+    After this endpoint succeeds, the model crosses the commitment boundary.
+    This is a one-way transition. The following invariants lock in:
+
+    - input_schema and output_schema become authoritative
+    - file_path is assumed to point to a loadable ONNX file
+    - Downstream operations (predictions, jobs) may rely on these invariants
+
+    Before this point: experimental, mutable, no inference allowed.
+    After this point: committed, locked, inference enabled.
+
+    See MLModel class docstring for full invariant documentation.
     """
     # Check if model has an uploaded file
     if not model.file_path:

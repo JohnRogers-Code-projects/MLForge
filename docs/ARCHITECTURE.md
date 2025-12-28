@@ -172,6 +172,50 @@ stateDiagram-v2
     archived --> [*]: DELETE /models/{model_id}
 ```
 
+### Pipeline Commitment Boundary
+
+The `/models/{model_id}/validate` endpoint is **THE** commitment point in MLForge.
+This is a one-way transition. There is no uncommit.
+
+#### Pre-Boundary (PENDING, UPLOADED, VALIDATING, ERROR)
+
+Before the boundary, models are experimental:
+
+- Metadata may change freely
+- Files may be re-uploaded
+- No downstream operations depend on these models
+- **Inference is blocked**
+
+#### Post-Boundary (READY)
+
+After validation succeeds, the following invariants lock in:
+
+| Invariant | Meaning |
+|-----------|---------|
+| `file_path` is set | Points to a valid ONNX file |
+| `file_hash` is set | Matches file content |
+| `input_schema` is set | Describes model inputs authoritatively |
+| `output_schema` is set | Describes model outputs authoritatively |
+| `model_metadata` is set | Contains ONNX runtime metadata |
+| File is loadable | ONNX Runtime can load it without error |
+
+**Post-boundary code assumes these invariants hold.** If they do not, the system is in a corrupt state. Violations are treated as corruption, not expected failures.
+
+#### Boundary in Code
+
+- **Commitment point**: `validate_model()` in `app/api/models.py`
+- **Boundary check**: `model.assert_committed()` in `app/models/ml_model.py`
+- **Post-boundary modules**: `app/api/predictions.py`, `app/tasks/inference.py`
+
+Post-boundary code calls `model.assert_committed()` as its first operation.
+This makes the boundary crossing explicit rather than relying on implicit status checks.
+
+#### Why This Matters
+
+If you try to run inference on an UPLOADED model, the error message explicitly says "has not crossed the pipeline commitment boundary" rather than a generic "not ready" message.
+
+This is intentionally **not** a global canonical context. Each model commits independently.
+
 ### Inference Engine
 
 **ONNX Service** (`app/services/onnx.py`)
