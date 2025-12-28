@@ -1,413 +1,187 @@
-# CLAUDE.md - MLForge
+# Claude Instructions — MLForge
 
-## Interaction Style
+You are assisting with changes to **MLForge**.
 
-- Be direct and critical. No sycophancy.
-- Point out flaws and inefficiencies directly
-- Honest technical assessment over politeness
+MLForge is **not** MCP-Demo.
 
-## Project Context
+It is intentionally more flexible, more operational, and more representative of real ML-adjacent backend systems.  
+However, that flexibility must now be **explicit, bounded, and intentional**.
 
-MLForge is a **generic ONNX model serving platform**. It serves any ONNX model uploaded to it—not tied to any specific domain or application.
-
-**It is NOT specialized for MTG, ForgeBreaker, or any specific use case.**
-
-Current consumers:
-- ForgeBreaker uploads a deck win-rate predictor model
-- Any other app could upload their own models
+Your task is to help sharpen MLForge’s architectural intent without turning it into a framework or over-constraining it.
 
 ---
 
-## CRITICAL: Work Item Rules
+## High-Level Goal
 
-### 🚨 DO NOT BUILD MONOLITHIC PRs
+MLForge should clearly demonstrate:
 
-**STOP. READ THIS BEFORE WRITING ANY CODE.**
+- Practical ML-oriented backend engineering
+- Pipeline-style data and model flow
+- Realistic operational tradeoffs
+- Explicit architectural decisions (not accidental ones)
 
-Each work item = ONE PR. Do not combine work items. Do not "get ahead." 
-
-**Before starting ANY work item, confirm with the user:**
-> "I'm about to start Work Item X. This will create/modify these files: [list]. Should I proceed?"
-
-**After completing ANY work item, STOP and say:**
-> "Work Item X is complete. Tests pass. Ready for review before starting Work Item Y."
-
-DO NOT automatically continue to the next work item.
-
-### 🚨 LINT BEFORE EVERY COMMIT
-
-**Run these commands before every commit, no exceptions:**
-
-```bash
-# Format code first
-ruff format .
-
-# Then check for lint errors
-ruff check . --fix
-
-# Verify no errors remain
-ruff check .
-
-# Only then run tests
-pytest -v
-```
-
-**If ruff check fails, fix ALL errors before committing.** Do not commit code with lint errors. Do not defer lint fixes to "a later PR."
-
-### 🚨 CI Must Pass At Every Commit
-
-Every single commit must:
-1. Pass `ruff format --check .`
-2. Pass `ruff check .`
-3. Pass `pytest`
-
-If CI fails, fix it immediately in the same PR. Do not merge broken code.
+It must **complement** MCP-Demo, not imitate it.
 
 ---
 
-## Linting Configuration
+## Non-Negotiable Principles
 
-Ensure this exists in `pyproject.toml`:
+You must preserve the following:
 
-```toml
-[tool.ruff]
-target-version = "py311"
-line-length = 88
-select = [
-    "E",   # pycodestyle errors
-    "W",   # pycodestyle warnings
-    "F",   # pyflakes
-    "I",   # isort
-    "B",   # flake8-bugbear
-    "UP",  # pyupgrade
-]
-ignore = [
-    "E501",  # line too long (handled by formatter)
-]
+1. MLForge remains **practical and realistic**
+2. MLForge remains **flexible where experimentation is required**
+3. MLForge does **not** become a constrained reference architecture
+4. MLForge does **not** gain framework-like abstractions
+5. MLForge does **not** hide complexity behind “magic” helpers
 
-[tool.ruff.format]
-quote-style = "double"
-
-[tool.ruff.lint.isort]
-known-first-party = ["app"]
-```
+Flexibility is allowed — *but only when explicitly justified*.
 
 ---
 
-## Work Items (Do ONE at a time, get approval, then next)
+## Architectural Corrections Required
 
-### Work Item 1: Verify Existing Prediction Endpoint
-
-**Goal:** Confirm the existing `/api/v1/models/{id}/predict` endpoint works for generic ONNX models.
-
-**Files to check/modify:**
-- `backend/app/api/predictions.py`
-- `backend/tests/test_predictions.py`
-
-**Test cases to verify exist:**
-```python
-test_predict_accepts_arbitrary_features
-test_returns_prediction_array
-test_validates_input_matches_model_schema
-test_rejects_missing_features
-test_caches_predictions_in_redis
-test_handles_model_not_found
-```
-
-**Definition of Done:**
-- [ ] `ruff format .` passes
-- [ ] `ruff check .` passes
-- [ ] `pytest -v` passes
-- [ ] User has reviewed and approved
-
-**STOP after this. Do not proceed to Work Item 2 without explicit approval.**
+The following weaknesses must be addressed **deliberately**, not incidentally.
 
 ---
 
-### Work Item 2: Add Model Upload Endpoint (if missing)
+### 1. Explicit Architectural Stance (PR 1)
 
-**Goal:** Ensure models can be uploaded via API.
+MLForge must clearly state:
 
-**Files:**
-- `backend/app/api/models.py`
-- `backend/tests/test_models.py`
+- What it optimizes for
+- What it does *not* attempt to guarantee
+- How it differs philosophically from MCP-Demo
 
-**Test cases:**
-```python
-test_upload_onnx_model
-test_upload_rejects_invalid_file
-test_upload_stores_metadata
-test_list_models_returns_uploaded
-```
+This must be documented in the README and reflected in code structure.
 
-**Definition of Done:**
-- [ ] All lint checks pass
-- [ ] All tests pass
-- [ ] User has reviewed and approved
-
-**STOP after this.**
+You must **not** imply strong global guarantees that the system does not enforce.
 
 ---
 
-### Work Item 3: Performance Tests for ONNX Inference
+### 2. Single Authoritative Pipeline Commitment (PR 2)
 
-**Goal:** Measure and document model throughput and latency.
+MLForge must introduce **one explicit commitment point** in the pipeline where:
 
-**Files:**
-- `backend/tests/test_performance.py`
-- `docs/PERFORMANCE.md`
+- assumptions are locked in
+- data shape is considered authoritative
+- downstream stages may rely on invariants
 
-**Test cases:**
-```python
-test_single_prediction_latency_under_100ms
-test_batch_prediction_throughput
-test_cache_hit_latency_under_10ms
-```
+This is *not* a global canonical context.
 
-**Documentation to create:**
-```markdown
-# Performance Benchmarks
+It is a **pipeline commitment boundary**.
 
-## Single Prediction
-- Cold: Xms (no cache)
-- Warm: Xms (cached)
+Before this point:
+- experimentation is allowed
 
-## Throughput
-- X predictions/second (single model)
-
-## Environment
-- CPU: X
-- Memory: X
-- ONNX Runtime version: X
-```
+After this point:
+- assumptions must be enforced
+- misuse must fail loudly
 
 ---
 
-### Work Item 4: Mock Tests for Caching Logic
+### 3. Deliberate Failure Mode (PR 3)
 
-**Goal:** Verify Redis caching works correctly in isolation.
+MLForge must include **one intentional failure mode** that demonstrates:
 
-**Files:**
-- `backend/tests/test_caching.py`
+- misuse of the pipeline
+- violation of assumptions
+- invalid model or data artifact
 
-**Test cases:**
-```python
-test_prediction_cached_after_first_call
-test_cache_key_includes_model_and_input
-test_cache_expires_after_ttl
-test_cache_miss_calls_model
-test_cache_hit_skips_model
-```
+The failure must be:
+- explicit
+- early
+- loud
+- non-recoverable
 
----
+Do **not** add retries, fallbacks, or silent degradation.
 
-### Work Item 5: Architecture Documentation
-
-**Goal:** Explain system design visually.
-
-**File:** `docs/ARCHITECTURE.md`
-
-**Required content:**
-```markdown
-# MLForge Architecture
-
-## System Overview
-[Mermaid diagram showing: API → Model Registry → ONNX Runtime]
-                                    ↓
-                              Redis Cache
-                                    ↓
-                              PostgreSQL (metadata)
-                                    ↓
-                              Job Queue (async)
-
-## Components
-- **API Layer**: FastAPI endpoints for model CRUD and predictions
-- **Model Registry**: Stores ONNX files and metadata
-- **Inference Engine**: ONNX Runtime for model execution
-- **Cache Layer**: Redis for prediction caching
-- **Job Queue**: Async processing for batch predictions
-
-## Data Flow
-1. Client uploads ONNX model → stored in registry
-2. Client requests prediction → check cache → run inference → cache result
-3. Async jobs for batch processing
-```
+This failure exists to demonstrate engineering judgment.
 
 ---
 
-### Work Item 6: README Improvements
+### 4. Tool / Model Invocation Responsibility (PR 4)
 
-**Goal:** Make README story-driven and visually clear.
+MLForge may retain flexible model invocation.
 
-**Additions needed:**
-- [ ] "Why MLForge?" section explaining uniqueness
-- [ ] Architecture diagram (inline Mermaid or image)
-- [ ] Example curl commands with responses
-- [ ] CI badges (build, coverage)
-- [ ] Screenshots of dashboard (if frontend exists)
+However:
 
-**README structure:**
-```markdown
-# MLForge
+- Responsibility for *why* a model is invoked must be explicit
+- Tool/model interfaces must not silently accumulate policy
+- “Manager” classes must justify their existence
 
-![Build](badge) ![Coverage](badge)
-
-## What is MLForge?
-Generic ONNX model serving platform. Upload any model, get predictions via API.
-
-## Why MLForge?
-- Fast: ONNX Runtime + Redis caching
-- Simple: REST API, no ML framework lock-in
-- Scalable: Async job queue for batch processing
-
-## Architecture
-[diagram]
-
-## Quick Start
-[commands]
-
-## API Examples
-[curl examples with responses]
-
-## Performance
-[link to PERFORMANCE.md]
-```
+If a component is making decisions, that must be obvious in code.
 
 ---
 
-### Work Item 7: CI Workflow
+### 5. Testing Philosophy Alignment (PR 5)
 
-**Goal:** Enforce quality on every PR.
+MLForge tests must include:
 
-**File:** `.github/workflows/ci.yml`
+- At least one negative test that proves:
+    - misuse fails
+    - invalid state cannot propagate
 
-```yaml
-name: CI
-on: [push, pull_request]
+Do **not** attempt exhaustive coverage.
 
-jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - run: pip install ruff mypy
-      - run: ruff format --check .
-      - run: ruff check .
-      - run: mypy backend/app --ignore-missing-imports
-
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - run: pip install -e ".[dev]"
-      - run: pytest --cov=app --cov-report=xml --cov-fail-under=70
-      - uses: codecov/codecov-action@v4
-```
+One strong, intentional negative test is sufficient.
 
 ---
 
-### Work Item 8: .env.example
+## Hard Prohibitions
 
-**Goal:** Safe template for environment setup.
+You must **not**:
 
-**File:** `.env.example`
+- introduce plugin systems
+- introduce registries
+- add configuration layers “for flexibility”
+- abstract for reuse across future domains
+- unify MLForge and MCP-Demo concepts
+- claim guarantees the system does not enforce
+- add defensive recovery that hides failure
 
-```bash
-# Database
-DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/mlforge
-
-# Redis
-REDIS_URL=redis://localhost:6379/0
-
-# Security
-SECRET_KEY=change-me-in-production
-
-# Environment
-ENVIRONMENT=development
-```
+If something feels “cleaner” but less explicit, do not do it.
 
 ---
 
-## Commands (Run in this order, every time)
+## PR Sequencing (Must Follow)
 
-```bash
-cd backend
+You must propose and implement changes in **this exact order**:
 
-# 1. Format
-ruff format .
+1. **PR 1 — Architectural Stance & README**
+2. **PR 2 — Pipeline Commitment Boundary**
+3. **PR 3 — Deliberate Failure Mode**
+4. **PR 4 — Responsibility Clarification**
+5. **PR 5 — Negative Test**
 
-# 2. Lint (fix auto-fixable)
-ruff check . --fix
+No PR may combine multiple goals.
 
-# 3. Lint (verify clean)
-ruff check .
-
-# 4. Test
-pytest -v
-
-# 5. Only now commit
-git add .
-git commit -m "feat: description here"
-```
+Each PR must be:
+- small
+- reviewable
+- conceptually singular
 
 ---
 
-## File Structure
+## Success Criteria
 
-```
-backend/
-├── app/
-│   ├── api/
-│   │   ├── health.py
-│   │   ├── models.py
-│   │   └── predictions.py
-│   ├── crud/
-│   ├── models/        # SQLAlchemy
-│   ├── schemas/       # Pydantic
-│   ├── config.py
-│   ├── database.py
-│   └── main.py
-├── alembic/
-├── tests/
-├── pyproject.toml     # Must have ruff config
-└── Dockerfile
-```
+After all PRs:
+
+- MLForge clearly communicates *why it is flexible*
+- Authority and responsibility are explicit
+- Failure is intentional, not accidental
+- Reviewers can explain the architecture after one read
+- MLForge complements MCP-Demo without copying it
+
+If MLForge starts to feel like a framework or a demo of constraints, you have failed.
 
 ---
 
-## Quality Checklist (Every PR)
+## Final Instruction
 
-- [ ] Only ONE work item per PR
-- [ ] `ruff format .` passes
-- [ ] `ruff check .` passes (zero errors)
-- [ ] `pytest -v` passes
-- [ ] No railway config changes
-- [ ] No domain-specific code
-- [ ] User approved before merge
+Do not optimize for elegance.
 
----
+Optimize for **explicit tradeoffs, visible responsibility, and honest engineering**.
 
-## Anti-Patterns to Avoid
+If a decision is pragmatic, say so in code and documentation.
 
-❌ "I'll implement Work Items 1-3 together for efficiency"
-❌ "I'll fix the lint errors in a follow-up PR"  
-❌ "The tests pass so the lint warnings are fine"
-❌ "I'll just disable that lint rule"
-❌ Committing without running ruff first
-
-✅ One work item at a time
-✅ Lint before every commit
-✅ Fix all errors before committing
-✅ Wait for approval between work items
-
----
-
-## AI Assistance
-
-Built with Claude as AI pair programmer. John Rogers provides direction and review.
+Ambiguity is worse than imperfection.
