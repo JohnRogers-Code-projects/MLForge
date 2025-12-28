@@ -12,6 +12,56 @@ Generic ONNX model serving platform. Upload any model, get predictions via REST 
 - **Scalable** - Async job queue (Celery) for batch processing and long-running inference
 - **Observable** - Health checks, metrics endpoints, and optional Sentry integration
 
+## Architectural Stance
+
+MLForge is a **practical ML serving platform**. It is not a reference architecture.
+
+### What "Practical" Means Here
+
+When we say MLForge is "practical", we mean it is designed for:
+
+- **Iterative experimentation**: Models change. Schemas evolve. MLForge accommodates this.
+- **Evolving pipelines**: Your inference workflow today may not match tomorrow's. The system does not lock you into a single execution path.
+- **Mutable assumptions**: Early-stage ML projects often operate with incomplete information. MLForge does not demand certainty upfront.
+- **ML-driven uncertainty**: Model behavior is inherently probabilistic. MLForge does not pretend otherwise.
+- **Operational tradeoffs**: Flexibility has costs. MLForge makes those costs visible rather than hiding them.
+
+This flexibility is intentional. It is also bounded.
+
+### What This Repo Does NOT Guarantee
+
+MLForge deliberately does not provide:
+
+- **Global correctness**: There is no single source of truth that validates all operations. Components make local decisions.
+- **Canonical context**: Unlike systems with a central authority, MLForge does not maintain a globally consistent view of state.
+- **Single execution path**: Multiple valid paths exist through the system. This is a feature, not a bug.
+- **Misuse prevention by construction**: The API does not make invalid states unrepresentable. You can call endpoints in orders that don't make sense.
+- **Refusal on all invalid states**: Some invalid operations will proceed and fail later rather than being rejected upfront.
+
+These are **intentional tradeoffs**. A system that guaranteed all of the above would be slower to iterate with, harder to extend, and less representative of real ML infrastructure.
+
+### The Cost of Flexibility
+
+Flexibility without boundaries is chaos. MLForge addresses this through the concept of a **pipeline commitment boundary**:
+
+- **Before commitment**: Experimentation is allowed. You can upload, re-upload, reconfigure. Assumptions are mutable.
+- **At commitment**: A model becomes "ready". At this point, certain assumptions lock in.
+- **After commitment**: Invariants are expected to hold. Violations should fail explicitly rather than silently.
+
+This boundary exists conceptually in MLForge's design. Enforcement is a work in progress.
+
+### How MLForge Differs from MCP-Demo
+
+| Concern | MCP-Demo | MLForge |
+|---------|----------|---------|
+| Primary purpose | Protocol specification demo | Operational ML serving |
+| Flexibility | Constrained to spec | Flexible within boundaries |
+| State model | Canonical context | Local decisions, eventual consistency |
+| Invalid operations | Rejected by construction | May proceed, fail later |
+| Target user | Protocol implementers | ML engineers iterating on models |
+
+MLForge is less safe than MCP-Demo. That is the point. It trades safety for speed of iteration.
+
 ## Architecture
 
 ```

@@ -2,6 +2,51 @@
 
 This document describes the system architecture of ModelForge, a generic ONNX model serving platform.
 
+## Architectural Philosophy
+
+MLForge is designed for **practical ML infrastructure** — systems where models evolve, pipelines change, and certainty is earned over time rather than assumed upfront.
+
+### What MLForge Does Not Guarantee
+
+- **Global correctness**: Components make local decisions. There is no central arbiter.
+- **Canonical context**: State is distributed. Consistency is eventual, not immediate.
+- **Misuse prevention**: Invalid API call sequences are possible. They may fail late.
+- **Refusal of all invalid states**: Some errors surface at runtime, not at request time.
+
+These gaps are intentional. They reflect the reality of ML systems in development.
+
+### The Pipeline Commitment Model
+
+MLForge uses a conceptual **pipeline commitment boundary**:
+
+1. **Before commitment** (status: PENDING, UPLOADED): Experimentation is allowed. Assumptions are mutable.
+2. **At commitment** (validation → READY): Certain assumptions lock in.
+3. **After commitment** (status: READY): Invariants are expected to hold.
+
+This model exists in the design. Full enforcement is a work in progress.
+
+### What MLForge Deliberately Avoids
+
+- Plugin systems or registries
+- Configuration layers added "for flexibility"
+- Silent recovery or fallback mechanisms
+- Abstractions designed for hypothetical future reuse
+
+Complexity must be justified. If it isn't, it doesn't belong here.
+
+### When to Use MLForge
+
+You need to serve ONNX models with minimal ceremony, and you accept that:
+- Some invalid states are possible
+- Enforcement is explicit, not preventive
+- Flexibility comes with operational responsibility
+
+### When NOT to Use MLForge
+
+- You need strict multi-tenant isolation
+- You require schema enforcement at upload time
+- You cannot tolerate late-surfacing errors
+
 ## System Overview
 
 ```mermaid
