@@ -5,6 +5,16 @@
 
 Generic ONNX model serving platform. Upload any model, get predictions via REST API.
 
+## System Context
+
+MLForge is a standalone ML inference service extracted from ForgeBreaker to decouple model lifecycle from application deployment.
+It is consumed by ForgeBreaker and optionally by LarderLab as part of the system described here:
+https://github.com/JohnRogers-Code-projects/JohnRogers
+
+This separation allows models to be trained, versioned, and rolled back independently of application code.
+
+---
+
 ## Why ModelForge?
 
 - **Fast** - ONNX Runtime for optimized inference + Redis caching for repeated predictions
