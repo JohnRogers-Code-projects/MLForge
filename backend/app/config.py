@@ -1,4 +1,9 @@
-"""Application configuration using Pydantic Settings."""
+"""Application configuration using Pydantic Settings.
+
+Required environment variables (no defaults):
+    SECRET_KEY: Application secret for signing tokens/sessions.
+                Must be set in all environments.
+"""
 
 from functools import lru_cache
 
@@ -56,8 +61,8 @@ class Settings(BaseSettings):
     )
     cache_prediction_enabled: bool = True  # Enable prediction caching
 
-    # Security
-    secret_key: str = "change-me-in-production"
+    # Security (required - no defaults)
+    secret_key: str  # Required: set SECRET_KEY in environment
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:8000"]
 
     # Model storage
